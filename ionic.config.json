@@ -1,0 +1,7 @@
+{
+  "name": "ventilation-app",
+  "integrations": {
+    "capacitor": {}
+  },
+  "type": "angular"
+}
