@@ -62,34 +62,58 @@ export class HomePage {
         'SITE TOURISTIQUE',
         'COMITE DE SUIVI ET VALIDATION',
         'ONT CONTROLE ET INSPECTION DES UNITES TOURISTIQUES',
-        'EAZZYBIZ TRSF', // Add patterns from your bank statement
-        'Depot cash',
       ];
       const designationPattern = targetDesignations.join('|');
 
       for (let i = 1; i <= pdf.numPages; i++) {
         const page = await pdf.getPage(i);
         const content = await page.getTextContent();
-        
-        // Extract text with position information
-        const textItems = content.items.map((item: any) => ({
-          str: item.str,
-          x: item.transform[4], // X position
-          y: item.transform[5], // Y position
-          width: item.width,
-          height: item.height
-        }));
+        const text = content.items.map((item: any) => item.str).join(' ');
 
-        // Try to detect table structure first
-        const tableData = this.parseTableStructure(textItems);
-        
-        if (tableData.length > 0) {
-          // Use table-based parsing
-          result.push(...this.parseTransactionsFromTable(tableData, designationPattern));
-        } else {
-          // Fallback to regex-based parsing
-          const text = textItems.map(item => item.str).join(' ');
-          result.push(...this.parseTransactionsFromText(text, designationPattern));
+        // Enhanced regex to capture amounts with commas and decimals
+        // Look for patterns like: date designation amount1 amount2 (where amount2 might be balance)
+        const transactionRegex = new RegExp(
+          `(\\d{2}-\\d{2}-\\d{4}).*?(${designationPattern}).*?` +
+            `([\\d,]+\\.\\d{2})(?:\\s+([\\d,]+\\.\\d{2}))?`, // Two amounts: debit/credit and possibly balance
+          'gi'
+        );
+
+        let match;
+        while ((match = transactionRegex.exec(text)) !== null) {
+          const amount1 = this.parseAmount(match[3]);
+          const amount2 = match[4] ? this.parseAmount(match[4]) : 0;
+          
+          // Logic to determine if it's a debit or credit
+          // In bank statements, typically:
+          // - If there's only one amount, check context or assume it's a debit (expense)
+          // - If there are two amounts, the first is usually the transaction amount, second is balance
+          
+          let debit = 0;
+          let credit = 0;
+          let montant = 0;
+          
+          // For now, let's assume single amounts are debits (expenses) since this is an expense tracking system
+          // You may need to adjust this logic based on your specific PDF format
+          if (amount2 === 0) {
+            // Single amount - assume it's a debit (expense)
+            debit = amount1;
+            credit = 0;
+            montant = -amount1; // Negative for debit
+          } else {
+            // Two amounts - need to determine which is debit/credit based on context
+            // This might need adjustment based on your PDF format
+            debit = amount1;
+            credit = 0;
+            montant = -amount1; // Negative for debit
+          }
+
+          result.push({
+            date: match[1],
+            designation: match[2],
+            debit: debit,
+            credit: credit,
+            montant: montant,
+          });
         }
       }
 
@@ -112,187 +136,6 @@ export class HomePage {
     } finally {
       this.isProcessing = false;
     }
-  }
-
-  /**
-   * Parse table structure from positioned text items
-   */
-  private parseTableStructure(textItems: any[]): any[][] {
-    // Group text items by Y position (rows)
-    const rowMap = new Map<number, any[]>();
-    const tolerance = 5; // Y position tolerance for grouping
-
-    textItems.forEach(item => {
-      let foundRow = false;
-      for (const [y, items] of rowMap.entries()) {
-        if (Math.abs(item.y - y) <= tolerance) {
-          items.push(item);
-          foundRow = true;
-          break;
-        }
-      }
-      if (!foundRow) {
-        rowMap.set(item.y, [item]);
-      }
-    });
-
-    // Convert to sorted rows
-    const rows = Array.from(rowMap.entries())
-      .sort((a, b) => b[0] - a[0]) // Sort by Y position (top to bottom)
-      .map(([y, items]) => items.sort((a, b) => a.x - b.x)); // Sort items in row by X position
-
-    // Look for table headers to identify table structure
-    const headerRow = rows.find(row => 
-      row.some(item => 
-        item.str.toLowerCase().includes('transaction') ||
-        item.str.toLowerCase().includes('date') ||
-        item.str.toLowerCase().includes('narrative') ||
-        item.str.toLowerCase().includes('debit') ||
-        item.str.toLowerCase().includes('credit')
-      )
-    );
-
-    if (!headerRow) {
-      return []; // No table structure found
-    }
-
-    // Find header positions
-    const headerIndex = rows.indexOf(headerRow);
-    const headers = headerRow.map(item => ({
-      text: item.str.toLowerCase(),
-      x: item.x,
-      width: item.width
-    }));
-
-    // Identify column positions
-    const columns = {
-      date: this.findColumnIndex(headers, ['transaction', 'date']),
-      narrative: this.findColumnIndex(headers, ['narrative', 'description']),
-      debit: this.findColumnIndex(headers, ['debit']),
-      credit: this.findColumnIndex(headers, ['credit'])
-    };
-
-    console.log('Detected table columns:', columns);
-
-    // Extract data rows (skip header and any rows before it)
-    const dataRows = rows.slice(headerIndex + 1);
-    
-    return dataRows.map(row => {
-      const rowData: any = {};
-      
-      // Map row items to columns based on X position
-      if (columns.date >= 0 && row[columns.date]) {
-        rowData.date = row[columns.date].str;
-      }
-      if (columns.narrative >= 0 && row[columns.narrative]) {
-        rowData.narrative = row[columns.narrative].str;
-      }
-      if (columns.debit >= 0 && row[columns.debit]) {
-        rowData.debit = this.parseAmount(row[columns.debit].str);
-      }
-      if (columns.credit >= 0 && row[columns.credit]) {
-        rowData.credit = this.parseAmount(row[columns.credit].str);
-      }
-
-      return rowData;
-    }).filter(row => row.date || row.narrative); // Filter out empty rows
-  }
-
-  /**
-   * Find column index based on header text
-   */
-  private findColumnIndex(headers: any[], keywords: string[]): number {
-    for (let i = 0; i < headers.length; i++) {
-      for (const keyword of keywords) {
-        if (headers[i].text.includes(keyword)) {
-          return i;
-        }
-      }
-    }
-    return -1;
-  }
-
-  /**
-   * Parse transactions from table data
-   */
-  private parseTransactionsFromTable(tableData: any[], designationPattern: string): TransactionData[] {
-    const result: TransactionData[] = [];
-    
-    tableData.forEach(row => {
-      if (!row.narrative) return;
-      
-      // Check if narrative matches our target designations
-      const regex = new RegExp(designationPattern, 'i');
-      if (!regex.test(row.narrative)) return;
-
-      const debit = row.debit || 0;
-      const credit = row.credit || 0;
-      const montant = credit - debit; // Positive for credits, negative for debits
-
-      result.push({
-        date: row.date || new Date().toLocaleDateString('en-GB'),
-        designation: row.narrative,
-        debit: debit,
-        credit: credit,
-        montant: montant
-      });
-    });
-
-    return result;
-  }
-
-  /**
-   * Fallback text-based parsing
-   */
-  private parseTransactionsFromText(text: string, designationPattern: string): TransactionData[] {
-    const result: TransactionData[] = [];
-    
-    // Enhanced regex to capture amounts with commas and decimals
-    const transactionRegex = new RegExp(
-      `(\\d{2}-\\d{2}-\\d{4}).*?(${designationPattern}).*?` +
-        `([\\d,]+\\.\\d{2})(?:\\s+([\\d,]+\\.\\d{2}))?`, // Two amounts: debit/credit and possibly balance
-      'gi'
-    );
-
-    let match;
-    while ((match = transactionRegex.exec(text)) !== null) {
-      const amount1 = this.parseAmount(match[3]);
-      const amount2 = match[4] ? this.parseAmount(match[4]) : 0;
-      
-      // Logic to determine if it's a debit or credit
-      // In bank statements, typically:
-      // - If there's only one amount, check context or assume it's a debit (expense)
-      // - If there are two amounts, the first is usually the transaction amount, second is balance
-      
-      let debit = 0;
-      let credit = 0;
-      let montant = 0;
-      
-      // For now, let's assume single amounts are debits (expenses) since this is an expense tracking system
-      // You may need to adjust this logic based on your specific PDF format
-      if (amount2 === 0) {
-        // Single amount - assume it's a debit (expense)
-        debit = amount1;
-        credit = 0;
-        montant = -amount1; // Negative for debit
-      } else {
-        // Two amounts - need to determine which is debit/credit based on context
-        // This might need adjustment based on your PDF format
-        debit = amount1;
-        credit = 0;
-        montant = -amount1; // Negative for debit
-      }
-
-      result.push({
-        date: match[1],
-        designation: match[2],
-        debit: debit,
-        credit: credit,
-        montant: montant,
-      });
-    }
-
-    return result;
   }
 
   /**
