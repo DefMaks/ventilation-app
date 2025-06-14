@@ -5,7 +5,6 @@ import * as pdfjsLib from 'pdfjs-dist';
 import { getDocument, GlobalWorkerOptions } from 'pdfjs-dist';
 import { ExcelTemplateService, TransactionData } from '../services/excel-template.service';
 import { CurrencyService } from '../services/currency.service';
-import { PdfTableParserService } from '../services/pdf-table-parser.service';
 import { CurrencyModalComponent } from '../components/currency-modal/currency-modal.component';
 import { TransactionQuickviewComponent } from '../components/transaction-quickview/transaction-quickview.component';
 
@@ -29,7 +28,6 @@ export class HomePage {
   constructor(
     private excelTemplateService: ExcelTemplateService,
     private currencyService: CurrencyService,
-    private pdfTableParser: PdfTableParserService,
     private modalController: ModalController
   ) {
     // Load stored exchange rate on initialization
@@ -47,7 +45,7 @@ export class HomePage {
     this.validationErrors = [];
 
     try {
-      console.log('🔍 Processing file:', file.name);
+      console.log('Processing file:', file.name);
       const arrayBuffer = await file.arrayBuffer();
       const pdf = await getDocument({ data: arrayBuffer }).promise;
       const result: TransactionData[] = [];
@@ -69,44 +67,14 @@ export class HomePage {
 
       for (let i = 1; i <= pdf.numPages; i++) {
         const page = await pdf.getPage(i);
-        
-        // NEW: Try table-aware parsing first
-        console.log(`\n🔍 === PAGE ${i} - TRYING TABLE PARSER ===`);
-        try {
-          const tableStructure = await this.pdfTableParser.analyzeTableStructure(page);
-          console.log('📊 Table structure found:', tableStructure);
-          console.log('📋 Headers:', tableStructure.headers);
-          console.log('📝 Number of rows:', tableStructure.rows.length);
-          
-          // Log first few rows for inspection
-          console.log('\n📄 First 5 rows:');
-          tableStructure.rows.slice(0, 5).forEach((row, index) => {
-            console.log(`Row ${index}: ${row.cellCount} cells -`, row.cells.map(c => `"${c.text}"`));
-          });
-          
-          const tableTransactions = this.pdfTableParser.extractTransactionsFromTable(tableStructure);
-          console.log('💰 Transactions from table parser:', tableTransactions);
-          
-          if (tableTransactions.length > 0) {
-            result.push(...tableTransactions);
-            console.log(`✅ Table parser found ${tableTransactions.length} transactions on page ${i}`);
-            continue; // Skip regex parsing if table parsing worked
-          } else {
-            console.log('⚠️ Table parser found no transactions, trying regex fallback...');
-          }
-        } catch (tableError) {
-          console.warn('❌ Table parsing failed, falling back to regex:', tableError);
-        }
-
-        // FALLBACK: Original regex approach - but this should rarely be used now
-        console.log(`\n🔄 === PAGE ${i} - FALLBACK TO REGEX ===`);
         const content = await page.getTextContent();
         const text = content.items.map((item: any) => item.str).join(' ');
         
-        // Enhanced regex to capture the 5-column structure
+        // Enhanced regex to capture amounts with commas and decimals
+        // Look for patterns like: date designation amount1 amount2 (where amount2 might be balance)
         const transactionRegex = new RegExp(
           `(\\d{2}-\\d{2}-\\d{4}).*?(${designationPattern}).*?` +
-            `([\\d,]+\\.\\d{2})(?:\\s+([\\d,]+\\.\\d{2}))?`, // Two amounts: first and second
+            `([\\d,]+\\.\\d{2})(?:\\s+([\\d,]+\\.\\d{2}))?`, // Two amounts: debit/credit and possibly balance
           'gi'
         );
 
@@ -115,39 +83,28 @@ export class HomePage {
           const amount1 = this.parseAmount(match[3]);
           const amount2 = match[4] ? this.parseAmount(match[4]) : 0;
           
-          // For regex fallback, assume single amounts are debits unless proven otherwise
+          // Logic to determine if it's a debit or credit
+          // In bank statements, typically:
+          // - If there's only one amount, check context or assume it's a debit (expense)
+          // - If there are two amounts, the first is usually the transaction amount, second is balance
+          
           let debit = 0;
           let credit = 0;
           let montant = 0;
           
-          const designation = match[2].toUpperCase();
-          
-          // Check if this looks like income/credit based on designation
-          const creditKeywords = ['RECEIPT', 'DEPOSIT', 'INCOME', 'CREDIT'];
-          const isLikelyCredit = creditKeywords.some(keyword => designation.includes(keyword));
-          
+          // For now, let's assume single amounts are debits (expenses) since this is an expense tracking system
+          // You may need to adjust this logic based on your specific PDF format
           if (amount2 === 0) {
-            // Single amount
-            if (isLikelyCredit) {
-              credit = amount1;
-              debit = 0;
-              montant = amount1; // Positive for credit
-            } else {
-              debit = amount1;
-              credit = 0;
-              montant = -amount1; // Negative for debit
-            }
+            // Single amount - assume it's a debit (expense)
+            debit = amount1;
+            credit = 0;
+            montant = -amount1; // Negative for debit
           } else {
-            // Two amounts - assume first is transaction, second is balance
-            if (isLikelyCredit) {
-              credit = amount1;
-              debit = 0;
-              montant = amount1;
-            } else {
-              debit = amount1;
-              credit = 0;
-              montant = -amount1;
-            }
+            // Two amounts - need to determine which is debit/credit based on context
+            // This might need adjustment based on your PDF format
+            debit = amount1;
+            credit = 0;
+            montant = -amount1; // Negative for debit
           }
 
           result.push({
@@ -160,14 +117,7 @@ export class HomePage {
         }
       }
 
-      console.log('\n🎯 Final transactions extracted:', result);
-      console.log(`📊 Total: ${result.length} transactions`);
-      
-      // Log summary of debit vs credit
-      const totalDebits = result.reduce((sum, t) => sum + t.debit, 0);
-      const totalCredits = result.reduce((sum, t) => sum + t.credit, 0);
-      console.log(`💸 Total Debits: ${totalDebits.toLocaleString('en-US', {minimumFractionDigits: 2})}`);
-      console.log(`💰 Total Credits: ${totalCredits.toLocaleString('en-US', {minimumFractionDigits: 2})}`);
+      console.log('Transactions extraites (USD):', result);
       
       // Store original USD amounts and display them directly (no conversion)
       this.usdAmounts = [...result];
@@ -177,11 +127,11 @@ export class HomePage {
       const validation = this.excelTemplateService.validateData(this.transactions);
       if (!validation.isValid) {
         this.validationErrors = validation.errors;
-        console.warn('⚠️ Validation errors:', validation.errors);
+        console.warn('Erreurs de validation:', validation.errors);
       }
 
     } catch (error) {
-      console.error('❌ Error processing PDF:', error);
+      console.error('Erreur de traitement PDF:', error);
       this.validationErrors = ['Erreur lors du traitement du PDF: ' + (error as Error).message];
     } finally {
       this.isProcessing = false;
