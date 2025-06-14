@@ -51,6 +51,8 @@ export class HomePage {
 
       // Pattern optimisé pour vos besoins
       const targetDesignations = [
+        'PYT FPT',
+        'TRSF',
         'PMT TOURISME',
         'FPT INVESTISSEMENT',
         'ONT FICHE STATISTIQUES',
