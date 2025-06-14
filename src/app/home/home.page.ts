@@ -127,7 +127,7 @@ export class HomePage {
           const designation = match[2].toUpperCase();
           
           // Check if this looks like income/credit based on designation
-          const creditKeywords = ['RECETTE', 'DEPOT', 'VIREMENT RECU', 'CREDIT', 'REMBOURSEMENT'];
+          const creditKeywords = ['credit'];
           const isLikelyCredit = creditKeywords.some(keyword => designation.includes(keyword));
           
           if (amount2 === 0) {
