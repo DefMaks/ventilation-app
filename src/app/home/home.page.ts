@@ -84,9 +84,9 @@ export class HomePage {
           const amount2 = this.parseAmount(match[4]); // Second amount  
           const amount3 = this.parseAmount(match[5]); // Third amount (balance)
           
-          let debit = 0.0;
-          let credit = 0.0;
-          let montant = 0.0;
+          let debit = 0;
+          let credit = 0;
+          let montant = 0;
           
           // In typical bank statement format:
           // If first amount is 0.00 and second has value = credit transaction
@@ -94,12 +94,12 @@ export class HomePage {
           if (amount1 === 0 && amount2 > 0) {
             // Credit transaction
             credit = amount2;
-            debit = 0.0;
+            debit = 0;
             montant = amount2; // Positive for credit
           } else if (amount1 > 0 && amount2 === 0) {
             // Debit transaction
             debit = amount1;
-            credit = 0.0;
+            credit = 0;
             montant = -amount1; // Negative for debit
           } else if (amount1 > 0 && amount2 > 0) {
             // Both amounts present - need to determine based on context
@@ -110,7 +110,7 @@ export class HomePage {
           } else {
             // Fallback - treat as debit if only one amount
             debit = amount1 > 0 ? amount1 : amount2;
-            credit = 0.0;
+            credit = 0;
             montant = -(amount1 > 0 ? amount1 : amount2);
           }
 
@@ -133,7 +133,7 @@ export class HomePage {
 
           while ((match = simpleRegex.exec(text)) !== null) {
             const amount1 = this.parseAmount(match[3]);
-            const amount2 = match[4] ? this.parseAmount(match[4]) : 0.0;
+            const amount2 = match[4] ? this.parseAmount(match[4]) : 0;
             
             // For expense tracking system, most transactions are likely debits
             // But we should check if the designation suggests it's income/credit
@@ -141,17 +141,17 @@ export class HomePage {
                                    match[2].toUpperCase().includes('REVENUE') ||
                                    match[2].toUpperCase().includes('INCOME');
             
-            let debit = 0.0;
-            let credit = 0.0;
-            let montant = 0.0;
+            let debit = 0;
+            let credit = 0;
+            let montant = 0;
             
             if (isLikelyCredit) {
               credit = amount1;
-              debit = 0.0;
+              debit = 0;
               montant = amount1; // Positive for credit
             } else {
               debit = amount1;
-              credit = 0.0;
+              credit = 0;
               montant = -amount1; // Negative for debit
             }
 
@@ -189,41 +189,27 @@ export class HomePage {
 
   /**
    * Parse amount string with commas and decimals (e.g., "34,736.28")
-   * Returns 0.0 if the input is null, undefined, empty, or invalid
    */
-  private parseAmount(amountStr: string | null | undefined): number {
-    if (!amountStr || amountStr.trim() === '') {
-      return 0.0;
-    }
+  private parseAmount(amountStr: string): number {
+    if (!amountStr) return 0;
     
     // Remove any non-digit, non-comma, non-decimal characters
     const cleanAmount = amountStr.replace(/[^\d,.-]/g, '');
-    
-    if (!cleanAmount || cleanAmount === '') {
-      return 0.0;
-    }
     
     // Handle different formats:
     // "34,736.28" -> 34736.28
     // "1,234,567.89" -> 1234567.89
     // "1234.56" -> 1234.56
     
-    try {
-      // If there's a decimal point, split on it
-      if (cleanAmount.includes('.')) {
-        const parts = cleanAmount.split('.');
-        const integerPart = parts[0].replace(/,/g, ''); // Remove all commas from integer part
-        const decimalPart = parts[1];
-        const result = parseFloat(`${integerPart}.${decimalPart}`);
-        return isNaN(result) ? 0.0 : result;
-      } else {
-        // No decimal point, just remove commas
-        const result = parseFloat(cleanAmount.replace(/,/g, ''));
-        return isNaN(result) ? 0.0 : result;
-      }
-    } catch (error) {
-      console.warn('Error parsing amount:', amountStr, error);
-      return 0.0;
+    // If there's a decimal point, split on it
+    if (cleanAmount.includes('.')) {
+      const parts = cleanAmount.split('.');
+      const integerPart = parts[0].replace(/,/g, ''); // Remove all commas from integer part
+      const decimalPart = parts[1];
+      return parseFloat(`${integerPart}.${decimalPart}`);
+    } else {
+      // No decimal point, just remove commas
+      return parseFloat(cleanAmount.replace(/,/g, ''));
     }
   }
 
@@ -258,8 +244,8 @@ export class HomePage {
     // Convert all transactions from USD to CDF for export
     return this.usdAmounts.map(transaction => ({
       ...transaction,
-      debit: transaction.debit > 0 ? this.currencyService.convertUsdToCdf(transaction.debit, exchangeRate) : 0.0,
-      credit: transaction.credit > 0 ? this.currencyService.convertUsdToCdf(transaction.credit, exchangeRate) : 0.0,
+      debit: transaction.debit > 0 ? this.currencyService.convertUsdToCdf(transaction.debit, exchangeRate) : 0,
+      credit: transaction.credit > 0 ? this.currencyService.convertUsdToCdf(transaction.credit, exchangeRate) : 0,
       montant: this.currencyService.convertUsdToCdf(transaction.montant, exchangeRate)
     }));
   }
