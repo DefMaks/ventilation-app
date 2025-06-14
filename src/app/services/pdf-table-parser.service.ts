@@ -13,7 +13,7 @@ export interface TableRow {
   y: number;
   cells: TableCell[];
   cellCount: number;
-  rawText: string; // Add raw text for each row
+  rawText: string;
 }
 
 export interface TableStructure {
@@ -21,7 +21,9 @@ export interface TableStructure {
   rows: TableRow[];
   columnPositions: number[];
   rawText: string;
-  allTextItems: any[]; // Store all text items for debugging
+  allTextItems: any[];
+  debitColumnIndex?: number;
+  creditColumnIndex?: number;
 }
 
 @Injectable({
@@ -32,29 +34,21 @@ export class PdfTableParserService {
   constructor() { }
 
   /**
-   * Analyze table structure from PDF page - Enhanced version
+   * Analyze table structure from PDF page - Enhanced with column detection
    */
   async analyzeTableStructure(page: any): Promise<TableStructure> {
     const content = await page.getTextContent();
     const textItems = content.items;
 
-    // Get raw text for debugging
     const rawText = textItems.map((item: any) => item.str).join(' ');
     console.log('=== PDF ANALYSIS START ===');
     console.log('Total text items found:', textItems.length);
-    console.log('Raw PDF text (first 500 chars):', rawText.substring(0, 500));
 
-    // Show first 10 text items with positions
-    console.log('First 10 text items with positions:');
-    textItems.slice(0, 10).forEach((item: any, index: number) => {
-      console.log(`${index}: "${item.str}" at (${item.transform[4]}, ${item.transform[5]})`);
-    });
-
-    // Group text items by Y position (rows) with more flexible tolerance
+    // Group text items by Y position (rows)
     const rowGroups = this.groupItemsByRowEnhanced(textItems);
     console.log('Row groups found:', rowGroups.size);
     
-    // Analyze column positions with enhanced detection
+    // Analyze column positions
     const columnPositions = this.detectColumnPositionsEnhanced(textItems);
     console.log('Column positions detected:', columnPositions);
     
@@ -77,7 +71,7 @@ export class PdfTableParserService {
       console.log(`Row ${rowIndex} (y=${y}): [${cells.map(c => `"${c.text}"`).join(', ')}]`);
       rows.push(row);
       
-      // Try to detect headers (usually first few rows)
+      // Try to detect headers
       if (rows.length <= 5 && this.looksLikeHeaderEnhanced(cells)) {
         headers = cells.map(cell => cell.text);
         console.log('Detected headers:', headers);
@@ -86,6 +80,12 @@ export class PdfTableParserService {
       rowIndex++;
     }
 
+    // **NEW: Detect debit and credit column positions**
+    const { debitColumnIndex, creditColumnIndex } = this.detectDebitCreditColumns(headers, rows);
+    
+    console.log('=== COLUMN DETECTION ===');
+    console.log('Debit column index:', debitColumnIndex);
+    console.log('Credit column index:', creditColumnIndex);
     console.log('=== PDF ANALYSIS END ===');
 
     return {
@@ -93,189 +93,148 @@ export class PdfTableParserService {
       rows,
       columnPositions,
       rawText,
-      allTextItems: textItems
+      allTextItems: textItems,
+      debitColumnIndex,
+      creditColumnIndex
     };
   }
 
   /**
-   * Enhanced row grouping with multiple tolerance levels
+   * **NEW: Detect which columns contain debit and credit amounts**
    */
-  private groupItemsByRowEnhanced(textItems: any[]): Map<number, any[]> {
-    const rowGroups = new Map<number, any[]>();
-    
-    // Try multiple tolerance levels
-    const tolerances = [2, 5, 8, 12];
-    let bestTolerance = tolerances[0];
-    let bestGroupCount = 0;
+  private detectDebitCreditColumns(headers: string[], rows: TableRow[]): { debitColumnIndex?: number, creditColumnIndex?: number } {
+    let debitColumnIndex: number | undefined;
+    let creditColumnIndex: number | undefined;
 
-    for (const tolerance of tolerances) {
-      const testGroups = new Map<number, any[]>();
+    // Method 1: Look for header keywords
+    headers.forEach((header, index) => {
+      const headerLower = header.toLowerCase();
       
-      textItems.forEach(item => {
-        const y = Math.round(item.transform[5] / tolerance) * tolerance;
-        
-        if (!testGroups.has(y)) {
-          testGroups.set(y, []);
-        }
-        testGroups.get(y)!.push(item);
-      });
-
-      // Prefer tolerance that creates reasonable number of groups
-      if (testGroups.size > bestGroupCount && testGroups.size < textItems.length / 2) {
-        bestGroupCount = testGroups.size;
-        bestTolerance = tolerance;
+      if (headerLower.includes('debit') || headerLower.includes('débit') || 
+          headerLower.includes('sortie') || headerLower.includes('retrait')) {
+        debitColumnIndex = index;
+        console.log(`Found DEBIT column by header: "${header}" at index ${index}`);
       }
-    }
-
-    console.log(`Using tolerance ${bestTolerance} which creates ${bestGroupCount} row groups`);
-
-    // Apply best tolerance
-    textItems.forEach(item => {
-      const y = Math.round(item.transform[5] / bestTolerance) * bestTolerance;
       
-      if (!rowGroups.has(y)) {
-        rowGroups.set(y, []);
-      }
-      rowGroups.get(y)!.push(item);
-    });
-
-    // Sort by Y position (top to bottom)
-    return new Map([...rowGroups.entries()].sort((a, b) => b[0] - a[0]));
-  }
-
-  /**
-   * Enhanced column position detection
-   */
-  private detectColumnPositionsEnhanced(textItems: any[]): number[] {
-    const xPositions = textItems.map(item => item.transform[4]);
-    const uniqueX = [...new Set(xPositions)].sort((a, b) => a - b);
-    
-    console.log('All unique X positions (first 20):', uniqueX.slice(0, 20));
-    
-    // Try multiple tolerance levels for column grouping
-    const tolerances = [10, 15, 20, 25, 30];
-    let bestColumns: number[] = [];
-    
-    for (const tolerance of tolerances) {
-      const columns: number[] = [];
-      
-      uniqueX.forEach(x => {
-        const existing = columns.find(col => Math.abs(col - x) < tolerance);
-        if (!existing) {
-          columns.push(x);
-        }
-      });
-      
-      // Prefer 3-6 columns (typical for bank statements)
-      if (columns.length >= 3 && columns.length <= 8) {
-        bestColumns = columns;
-        console.log(`Tolerance ${tolerance} gives ${columns.length} columns:`, columns);
-        break;
-      }
-    }
-
-    if (bestColumns.length === 0) {
-      // Fallback: use first tolerance
-      const tolerance = tolerances[0];
-      uniqueX.forEach(x => {
-        const existing = bestColumns.find(col => Math.abs(col - x) < tolerance);
-        if (!existing) {
-          bestColumns.push(x);
-        }
-      });
-    }
-
-    return bestColumns.sort((a, b) => a - b);
-  }
-
-  /**
-   * Enhanced cell assignment with better text combination
-   */
-  private assignItemsToCellsEnhanced(items: any[], columnPositions: number[]): TableCell[] {
-    const cells: TableCell[] = [];
-    const tolerance = 25; // Increased tolerance
-
-    // Sort items by X position
-    items.sort((a, b) => a.transform[4] - b.transform[4]);
-
-    // For each column position, find items that belong to it
-    columnPositions.forEach((colX, index) => {
-      const cellItems = items.filter(item => {
-        const itemX = item.transform[4];
-        
-        // Check if item is closest to this column
-        const distances = columnPositions.map(pos => Math.abs(itemX - pos));
-        const minDistance = Math.min(...distances);
-        const closestColumnIndex = distances.indexOf(minDistance);
-        
-        return closestColumnIndex === index && minDistance < tolerance;
-      });
-
-      if (cellItems.length > 0) {
-        // Sort by X position and combine text
-        cellItems.sort((a, b) => a.transform[4] - b.transform[4]);
-        const text = cellItems.map(item => item.str).join(' ').trim();
-        
-        cells.push({
-          text: text,
-          x: colX,
-          y: items[0]?.transform[5] || 0,
-          width: 0,
-          height: 0
-        });
-      } else {
-        // Empty cell
-        cells.push({
-          text: '',
-          x: colX,
-          y: items[0]?.transform[5] || 0,
-          width: 0,
-          height: 0
-        });
+      if (headerLower.includes('credit') || headerLower.includes('crédit') || 
+          headerLower.includes('entree') || headerLower.includes('entrée') || 
+          headerLower.includes('depot') || headerLower.includes('dépôt')) {
+        creditColumnIndex = index;
+        console.log(`Found CREDIT column by header: "${header}" at index ${index}`);
       }
     });
 
-    return cells;
+    // Method 2: Analyze column content patterns if headers don't work
+    if (debitColumnIndex === undefined || creditColumnIndex === undefined) {
+      console.log('Headers unclear, analyzing column patterns...');
+      
+      const columnAnalysis = this.analyzeColumnPatterns(rows);
+      
+      if (debitColumnIndex === undefined) {
+        debitColumnIndex = columnAnalysis.mostLikelyDebitColumn;
+      }
+      if (creditColumnIndex === undefined) {
+        creditColumnIndex = columnAnalysis.mostLikelyCreditColumn;
+      }
+    }
+
+    // Method 3: Smart fallback based on typical bank statement structure
+    if (debitColumnIndex === undefined && creditColumnIndex === undefined) {
+      console.log('Using fallback column detection...');
+      
+      // In typical bank statements:
+      // - Date is usually first column
+      // - Description/Narrative is usually second column  
+      // - Debit is often third column
+      // - Credit is often fourth column
+      // - Balance is often last column
+      
+      const numColumns = Math.max(...rows.map(r => r.cells.length));
+      
+      if (numColumns >= 4) {
+        debitColumnIndex = 2; // Third column (0-indexed)
+        creditColumnIndex = 3; // Fourth column (0-indexed)
+        console.log(`Fallback: assuming debit=column ${debitColumnIndex}, credit=column ${creditColumnIndex}`);
+      } else if (numColumns >= 3) {
+        // If only 3 columns, assume: Date, Description, Amount
+        // We'll need to determine if amount is debit or credit based on context
+        debitColumnIndex = 2;
+        console.log(`Fallback: assuming single amount column ${debitColumnIndex} (will determine debit/credit by context)`);
+      }
+    }
+
+    return { debitColumnIndex, creditColumnIndex };
   }
 
   /**
-   * Enhanced header detection
+   * **NEW: Analyze column patterns to identify debit/credit columns**
    */
-  private looksLikeHeaderEnhanced(cells: TableCell[]): boolean {
-    const headerKeywords = [
-      'date', 'narrative', 'debit', 'credit', 'balance', 'transaction', 'value',
-      'montant', 'libelle', 'designation', 'solde', 'operation', 'mouvement',
-      'ref', 'reference', 'description', 'amount', 'type', 'details'
-    ];
+  private analyzeColumnPatterns(rows: TableRow[]): { mostLikelyDebitColumn?: number, mostLikelyCreditColumn?: number } {
+    const columnStats = new Map<number, { amountCount: number, totalAmount: number, hasNegatives: boolean }>();
     
-    const cellTexts = cells.map(c => c.text.toLowerCase()).join(' ');
-    
-    // Check for header keywords
-    const hasKeywords = headerKeywords.some(keyword => cellTexts.includes(keyword));
-    
-    // Check if cells contain mostly text (not numbers/dates)
-    const hasTextCells = cells.some(cell => 
-      cell.text.length > 3 && 
-      /[a-zA-Z]/.test(cell.text) && 
-      !/^\d+$/.test(cell.text)
-    );
-    
-    return hasKeywords || hasTextCells;
+    // Analyze each column for amount patterns
+    rows.forEach(row => {
+      row.cells.forEach((cell, columnIndex) => {
+        if (this.isValidAmountFormat(cell.text)) {
+          const amount = this.parseAmountEnhanced(cell.text);
+          
+          if (amount > 0) {
+            if (!columnStats.has(columnIndex)) {
+              columnStats.set(columnIndex, { amountCount: 0, totalAmount: 0, hasNegatives: false });
+            }
+            
+            const stats = columnStats.get(columnIndex)!;
+            stats.amountCount++;
+            stats.totalAmount += amount;
+            
+            // Check if this looks like a negative amount (parentheses, minus sign)
+            if (cell.text.includes('(') || cell.text.includes('-')) {
+              stats.hasNegatives = true;
+            }
+          }
+        }
+      });
+    });
+
+    console.log('Column analysis:', Array.from(columnStats.entries()));
+
+    // Find columns with significant amount activity
+    const amountColumns = Array.from(columnStats.entries())
+      .filter(([_, stats]) => stats.amountCount >= 2) // At least 2 amounts
+      .sort((a, b) => b[1].amountCount - a[1].amountCount); // Sort by frequency
+
+    let mostLikelyDebitColumn: number | undefined;
+    let mostLikelyCreditColumn: number | undefined;
+
+    if (amountColumns.length >= 2) {
+      // If we have 2+ amount columns, assume first is debit, second is credit
+      mostLikelyDebitColumn = amountColumns[0][0];
+      mostLikelyCreditColumn = amountColumns[1][0];
+      console.log(`Pattern analysis: debit=column ${mostLikelyDebitColumn}, credit=column ${mostLikelyCreditColumn}`);
+    } else if (amountColumns.length === 1) {
+      // Single amount column - we'll determine debit/credit by transaction context
+      mostLikelyDebitColumn = amountColumns[0][0];
+      console.log(`Pattern analysis: single amount column ${mostLikelyDebitColumn}`);
+    }
+
+    return { mostLikelyDebitColumn, mostLikelyCreditColumn };
   }
 
   /**
-   * Enhanced transaction extraction with multiple strategies
+   * Enhanced transaction extraction with proper debit/credit detection
    */
   extractTransactionsFromTable(tableStructure: TableStructure): any[] {
     console.log('=== TRANSACTION EXTRACTION START ===');
     
     let transactions: any[] = [];
     
-    // Strategy 1: Structured table analysis
-    transactions = this.extractWithStructuredAnalysis(tableStructure);
-    console.log('Strategy 1 (Structured) found:', transactions.length, 'transactions');
+    // Strategy 1: Use detected column structure
+    if (tableStructure.debitColumnIndex !== undefined || tableStructure.creditColumnIndex !== undefined) {
+      transactions = this.extractWithColumnStructure(tableStructure);
+      console.log('Strategy 1 (Column Structure) found:', transactions.length, 'transactions');
+    }
     
-    // Strategy 2: Pattern matching on each row
+    // Strategy 2: Pattern matching fallback
     if (transactions.length === 0) {
       transactions = this.extractWithRowPatternMatching(tableStructure);
       console.log('Strategy 2 (Row Pattern) found:', transactions.length, 'transactions');
@@ -297,30 +256,285 @@ export class PdfTableParserService {
   }
 
   /**
-   * Validate and clean transactions to remove unrealistic amounts
+   * **NEW: Extract transactions using detected column structure**
+   */
+  private extractWithColumnStructure(tableStructure: TableStructure): any[] {
+    const transactions: any[] = [];
+    const datePattern = /\d{1,2}[-\/]\d{1,2}[-\/]\d{4}/;
+    
+    console.log('=== COLUMN STRUCTURE EXTRACTION ===');
+    console.log('Using debit column:', tableStructure.debitColumnIndex);
+    console.log('Using credit column:', tableStructure.creditColumnIndex);
+    
+    tableStructure.rows.forEach((row, index) => {
+      // Find date cell
+      const dateCell = row.cells.find(cell => datePattern.test(cell.text));
+      if (!dateCell) return;
+      
+      // Find narrative/designation cell
+      const narrativeCell = row.cells
+        .filter(cell => 
+          cell.text.length > 5 && 
+          !datePattern.test(cell.text) && 
+          !this.isAmountOnly(cell.text)
+        )
+        .sort((a, b) => b.text.length - a.text.length)[0];
+      
+      if (!narrativeCell) return;
+      
+      // Check if it's a target designation
+      if (this.isTargetDesignation(narrativeCell.text)) {
+        let debit = 0;
+        let credit = 0;
+        
+        // Extract debit amount
+        if (tableStructure.debitColumnIndex !== undefined && 
+            row.cells[tableStructure.debitColumnIndex]) {
+          const debitText = row.cells[tableStructure.debitColumnIndex].text;
+          if (this.isValidAmountFormat(debitText)) {
+            debit = this.parseAmountEnhanced(debitText);
+          }
+        }
+        
+        // Extract credit amount
+        if (tableStructure.creditColumnIndex !== undefined && 
+            row.cells[tableStructure.creditColumnIndex]) {
+          const creditText = row.cells[tableStructure.creditColumnIndex].text;
+          if (this.isValidAmountFormat(creditText)) {
+            credit = this.parseAmountEnhanced(creditText);
+          }
+        }
+        
+        // If we only have one amount column, determine debit/credit by context
+        if (tableStructure.creditColumnIndex === undefined && debit > 0) {
+          // Single amount column - determine if it's debit or credit based on designation
+          if (this.isLikelyCredit(narrativeCell.text)) {
+            credit = debit;
+            debit = 0;
+          }
+          // Otherwise keep as debit (default for expenses)
+        }
+        
+        // Calculate net amount
+        const montant = credit - debit;
+        
+        // Only add if we have a valid amount
+        if (debit > 0 || credit > 0) {
+          // Validate amounts are reasonable
+          if ((debit === 0 || debit <= 10000000) && (credit === 0 || credit <= 10000000)) {
+            transactions.push({
+              date: dateCell.text,
+              designation: narrativeCell.text,
+              debit: debit,
+              credit: credit,
+              montant: montant
+            });
+            
+            console.log('✓ Column extraction found:', {
+              date: dateCell.text,
+              designation: narrativeCell.text,
+              debit: debit,
+              credit: credit,
+              montant: montant
+            });
+          } else {
+            console.warn('Rejected unrealistic amounts:', { debit, credit });
+          }
+        }
+      }
+    });
+    
+    return transactions;
+  }
+
+  /**
+   * **NEW: Determine if a designation is likely a credit transaction**
+   */
+  private isLikelyCredit(designation: string): boolean {
+    const creditKeywords = [
+      'depot', 'dépôt', 'versement', 'virement reçu', 'recette', 'encaissement',
+      'credit', 'crédit', 'remboursement', 'interet', 'intérêt', 'dividende',
+      'salaire', 'pension', 'allocation', 'subvention', 'don', 'recettes'
+    ];
+    
+    const designationLower = designation.toLowerCase();
+    return creditKeywords.some(keyword => designationLower.includes(keyword));
+  }
+
+  /**
+   * Enhanced row grouping with multiple tolerance levels
+   */
+  private groupItemsByRowEnhanced(textItems: any[]): Map<number, any[]> {
+    const rowGroups = new Map<number, any[]>();
+    
+    const tolerances = [2, 5, 8, 12];
+    let bestTolerance = tolerances[0];
+    let bestGroupCount = 0;
+
+    for (const tolerance of tolerances) {
+      const testGroups = new Map<number, any[]>();
+      
+      textItems.forEach(item => {
+        const y = Math.round(item.transform[5] / tolerance) * tolerance;
+        
+        if (!testGroups.has(y)) {
+          testGroups.set(y, []);
+        }
+        testGroups.get(y)!.push(item);
+      });
+
+      if (testGroups.size > bestGroupCount && testGroups.size < textItems.length / 2) {
+        bestGroupCount = testGroups.size;
+        bestTolerance = tolerance;
+      }
+    }
+
+    console.log(`Using tolerance ${bestTolerance} which creates ${bestGroupCount} row groups`);
+
+    textItems.forEach(item => {
+      const y = Math.round(item.transform[5] / bestTolerance) * bestTolerance;
+      
+      if (!rowGroups.has(y)) {
+        rowGroups.set(y, []);
+      }
+      rowGroups.get(y)!.push(item);
+    });
+
+    return new Map([...rowGroups.entries()].sort((a, b) => b[0] - a[0]));
+  }
+
+  /**
+   * Enhanced column position detection
+   */
+  private detectColumnPositionsEnhanced(textItems: any[]): number[] {
+    const xPositions = textItems.map(item => item.transform[4]);
+    const uniqueX = [...new Set(xPositions)].sort((a, b) => a - b);
+    
+    const tolerances = [10, 15, 20, 25, 30];
+    let bestColumns: number[] = [];
+    
+    for (const tolerance of tolerances) {
+      const columns: number[] = [];
+      
+      uniqueX.forEach(x => {
+        const existing = columns.find(col => Math.abs(col - x) < tolerance);
+        if (!existing) {
+          columns.push(x);
+        }
+      });
+      
+      if (columns.length >= 3 && columns.length <= 8) {
+        bestColumns = columns;
+        console.log(`Tolerance ${tolerance} gives ${columns.length} columns:`, columns);
+        break;
+      }
+    }
+
+    if (bestColumns.length === 0) {
+      const tolerance = tolerances[0];
+      uniqueX.forEach(x => {
+        const existing = bestColumns.find(col => Math.abs(col - x) < tolerance);
+        if (!existing) {
+          bestColumns.push(x);
+        }
+      });
+    }
+
+    return bestColumns.sort((a, b) => a - b);
+  }
+
+  /**
+   * Enhanced cell assignment with better text combination
+   */
+  private assignItemsToCellsEnhanced(items: any[], columnPositions: number[]): TableCell[] {
+    const cells: TableCell[] = [];
+    const tolerance = 25;
+
+    items.sort((a, b) => a.transform[4] - b.transform[4]);
+
+    columnPositions.forEach((colX, index) => {
+      const cellItems = items.filter(item => {
+        const itemX = item.transform[4];
+        
+        const distances = columnPositions.map(pos => Math.abs(itemX - pos));
+        const minDistance = Math.min(...distances);
+        const closestColumnIndex = distances.indexOf(minDistance);
+        
+        return closestColumnIndex === index && minDistance < tolerance;
+      });
+
+      if (cellItems.length > 0) {
+        cellItems.sort((a, b) => a.transform[4] - b.transform[4]);
+        const text = cellItems.map(item => item.str).join(' ').trim();
+        
+        cells.push({
+          text: text,
+          x: colX,
+          y: items[0]?.transform[5] || 0,
+          width: 0,
+          height: 0
+        });
+      } else {
+        cells.push({
+          text: '',
+          x: colX,
+          y: items[0]?.transform[5] || 0,
+          width: 0,
+          height: 0
+        });
+      }
+    });
+
+    return cells;
+  }
+
+  /**
+   * Enhanced header detection
+   */
+  private looksLikeHeaderEnhanced(cells: TableCell[]): boolean {
+    const headerKeywords = [
+      'date', 'narrative', 'debit', 'credit', 'balance', 'transaction', 'value',
+      'montant', 'libelle', 'designation', 'solde', 'operation', 'mouvement',
+      'ref', 'reference', 'description', 'amount', 'type', 'details', 'débit', 'crédit'
+    ];
+    
+    const cellTexts = cells.map(c => c.text.toLowerCase()).join(' ');
+    
+    const hasKeywords = headerKeywords.some(keyword => cellTexts.includes(keyword));
+    
+    const hasTextCells = cells.some(cell => 
+      cell.text.length > 3 && 
+      /[a-zA-Z]/.test(cell.text) && 
+      !/^\d+$/.test(cell.text)
+    );
+    
+    return hasKeywords || hasTextCells;
+  }
+
+  /**
+   * Validate and clean transactions
    */
   private validateAndCleanTransactions(transactions: any[]): any[] {
     const validTransactions = transactions.filter(transaction => {
-      // Check for realistic amounts (between $0.01 and $10,000,000)
-      const amount = Math.abs(transaction.montant || transaction.debit || transaction.credit || 0);
+      const debitAmount = Math.abs(transaction.debit || 0);
+      const creditAmount = Math.abs(transaction.credit || 0);
+      const totalAmount = debitAmount + creditAmount;
       
-      if (amount < 0.01) {
-        console.warn('Rejected transaction with zero/negative amount:', transaction);
+      if (totalAmount < 0.01) {
+        console.warn('Rejected transaction with zero amount:', transaction);
         return false;
       }
       
-      if (amount > 10000000) { // 10 million USD limit
-        console.warn('Rejected transaction with unrealistic amount:', amount, transaction);
+      if (totalAmount > 10000000) {
+        console.warn('Rejected transaction with unrealistic amount:', totalAmount, transaction);
         return false;
       }
       
-      // Check for valid date format
       if (!transaction.date || !/\d{1,2}[-\/]\d{1,2}[-\/]\d{4}/.test(transaction.date)) {
         console.warn('Rejected transaction with invalid date:', transaction);
         return false;
       }
       
-      // Check for valid designation
       if (!transaction.designation || transaction.designation.trim().length < 3) {
         console.warn('Rejected transaction with invalid designation:', transaction);
         return false;
@@ -334,68 +548,7 @@ export class PdfTableParserService {
   }
 
   /**
-   * Strategy 1: Structured table analysis
-   */
-  private extractWithStructuredAnalysis(tableStructure: TableStructure): any[] {
-    const transactions: any[] = [];
-    const datePattern = /\d{1,2}[-\/]\d{1,2}[-\/]\d{4}/;
-    
-    tableStructure.rows.forEach((row, index) => {
-      console.log(`Analyzing row ${index}:`, row.cells.map(c => `"${c.text}"`));
-      
-      // Find date cell
-      const dateCell = row.cells.find(cell => datePattern.test(cell.text));
-      if (!dateCell) return;
-      
-      // Find narrative/designation cell (longest non-date, non-amount text)
-      const narrativeCell = row.cells
-        .filter(cell => 
-          cell.text.length > 5 && 
-          !datePattern.test(cell.text) && 
-          !this.isAmountOnly(cell.text)
-        )
-        .sort((a, b) => b.text.length - a.text.length)[0];
-      
-      if (!narrativeCell) return;
-      
-      // Check if it's a target designation
-      if (this.isTargetDesignation(narrativeCell.text)) {
-        // Find amount cells - be more selective
-        const amountCells = row.cells.filter(cell => {
-          const cleanText = cell.text.trim();
-          return this.isValidAmountFormat(cleanText) && this.parseAmountEnhanced(cleanText) > 0;
-        });
-        
-        if (amountCells.length > 0) {
-          const amount = this.parseAmountEnhanced(amountCells[0].text);
-          
-          // Additional validation for reasonable amounts
-          if (amount > 0 && amount <= 10000000) {
-            transactions.push({
-              date: dateCell.text,
-              designation: narrativeCell.text,
-              debit: amount,
-              credit: 0,
-              montant: -amount
-            });
-            
-            console.log('✓ Found transaction:', {
-              date: dateCell.text,
-              designation: narrativeCell.text,
-              amount: amount
-            });
-          } else {
-            console.warn('Rejected unrealistic amount:', amount, 'from text:', amountCells[0].text);
-          }
-        }
-      }
-    });
-    
-    return transactions;
-  }
-
-  /**
-   * Strategy 2: Pattern matching on each row
+   * Strategy 2: Pattern matching on each row (updated with debit/credit logic)
    */
   private extractWithRowPatternMatching(tableStructure: TableStructure): any[] {
     const transactions: any[] = [];
@@ -403,33 +556,41 @@ export class PdfTableParserService {
     tableStructure.rows.forEach((row, index) => {
       const rowText = row.rawText;
       
-      // Try to match pattern: date + target designation + amount
       const targetDesignations = this.getTargetDesignations();
       
       for (const designation of targetDesignations) {
         if (rowText.toUpperCase().includes(designation.toUpperCase())) {
-          // Look for date in this row
           const dateMatch = rowText.match(/\d{1,2}[-\/]\d{1,2}[-\/]\d{4}/);
           if (dateMatch) {
-            // Look for amounts - be more selective
             const amountMatches = this.extractValidAmounts(rowText);
             
             if (amountMatches.length > 0) {
               const amount = amountMatches[0];
               
               if (amount > 0 && amount <= 10000000) {
+                // Determine if it's debit or credit based on designation
+                let debit = 0;
+                let credit = 0;
+                
+                if (this.isLikelyCredit(designation)) {
+                  credit = amount;
+                } else {
+                  debit = amount;
+                }
+                
                 transactions.push({
                   date: dateMatch[0],
                   designation: designation,
-                  debit: amount,
-                  credit: 0,
-                  montant: -amount
+                  debit: debit,
+                  credit: credit,
+                  montant: credit - debit
                 });
                 
                 console.log('✓ Pattern match found:', {
                   date: dateMatch[0],
                   designation: designation,
-                  amount: amount
+                  debit: debit,
+                  credit: credit
                 });
               }
             }
@@ -442,27 +603,21 @@ export class PdfTableParserService {
   }
 
   /**
-   * Strategy 3: Flexible text search across all content
+   * Strategy 3: Flexible text search (updated with debit/credit logic)
    */
   private extractWithFlexibleSearch(tableStructure: TableStructure): any[] {
     const transactions: any[] = [];
     const allText = tableStructure.rawText;
     
-    console.log('Flexible search on text (first 500 chars):', allText.substring(0, 500));
-    
     const targetDesignations = this.getTargetDesignations();
     const designationPattern = targetDesignations.join('|');
 
-    // More conservative regex patterns
     const patterns = [
-      // Pattern 1: date designation amount (with word boundaries)
       new RegExp(`(\\d{1,2}[-\/]\\d{1,2}[-\/]\\d{4})\\s+.*?(${designationPattern}).*?\\s+([\\d,]{1,10}\\.\\d{2})(?!\\d)`, 'gi'),
-      // Pattern 2: designation date amount
       new RegExp(`(${designationPattern}).*?(\\d{1,2}[-\/]\\d{1,2}[-\/]\\d{4}).*?\\s+([\\d,]{1,10}\\.\\d{2})(?!\\d)`, 'gi')
     ];
 
     patterns.forEach((pattern, patternIndex) => {
-      console.log(`Trying pattern ${patternIndex + 1}...`);
       let match;
       while ((match = pattern.exec(allText)) !== null) {
         let date, designation, amountStr;
@@ -475,21 +630,30 @@ export class PdfTableParserService {
         
         const amount = this.parseAmountEnhanced(amountStr);
         if (amount > 0 && amount <= 10000000) {
+          // Determine if it's debit or credit
+          let debit = 0;
+          let credit = 0;
+          
+          if (this.isLikelyCredit(designation)) {
+            credit = amount;
+          } else {
+            debit = amount;
+          }
+          
           transactions.push({
             date: date,
             designation: designation,
-            debit: amount,
-            credit: 0,
-            montant: -amount
+            debit: debit,
+            credit: credit,
+            montant: credit - debit
           });
           
-          console.log(`✓ Flexible pattern ${patternIndex + 1} found:`, {
+          console.log(`✓ Flexible pattern found:`, {
             date: date,
             designation: designation,
-            amount: amount
+            debit: debit,
+            credit: credit
           });
-        } else {
-          console.warn(`Rejected amount from pattern ${patternIndex + 1}:`, amount, 'from:', amountStr);
         }
       }
     });
@@ -498,30 +662,27 @@ export class PdfTableParserService {
   }
 
   /**
-   * Extract valid amounts from text with better validation
+   * Extract valid amounts from text
    */
   private extractValidAmounts(text: string): number[] {
-    // Look for amounts in format: 1,234.56 or 1234.56
     const amountPattern = /\b(\d{1,3}(?:,\d{3})*\.\d{2}|\d{1,7}\.\d{2})\b/g;
     const matches = text.match(amountPattern) || [];
     
     return matches
       .map(match => this.parseAmountEnhanced(match))
-      .filter(amount => amount > 0 && amount <= 10000000); // Reasonable limits
+      .filter(amount => amount > 0 && amount <= 10000000);
   }
 
   /**
    * Check if text is a valid amount format
    */
   private isValidAmountFormat(text: string): boolean {
-    // Must be primarily digits, commas, and one decimal point
     const cleanText = text.trim();
     
-    // Check for valid amount patterns
     const validPatterns = [
-      /^\d{1,3}(?:,\d{3})*\.\d{2}$/, // 1,234.56
-      /^\d{1,7}\.\d{2}$/,            // 1234.56
-      /^\d{1,10}$/                   // 1234 (whole numbers)
+      /^\d{1,3}(?:,\d{3})*\.\d{2}$/,
+      /^\d{1,7}\.\d{2}$/,
+      /^\d{1,10}$/
     ];
     
     return validPatterns.some(pattern => pattern.test(cleanText));
@@ -543,19 +704,14 @@ export class PdfTableParserService {
     const cleanText = text.trim();
     
     try {
-      // Only handle specific, safe formats
       if (/^\d{1,3}(?:,\d{3})*\.\d{2}$/.test(cleanText)) {
-        // Format: 1,234.56
         const withoutCommas = cleanText.replace(/,/g, '');
         return parseFloat(withoutCommas);
       } else if (/^\d{1,7}\.\d{2}$/.test(cleanText)) {
-        // Format: 1234.56
         return parseFloat(cleanText);
       } else if (/^\d{1,10}$/.test(cleanText)) {
-        // Format: 1234 (whole number)
         return parseFloat(cleanText);
       } else {
-        // Reject anything else to avoid parsing errors
         console.warn('Rejected invalid amount format:', cleanText);
         return 0;
       }
@@ -612,20 +768,16 @@ export class PdfTableParserService {
     
     const transactions: any[] = [];
     
-    // Combine all row texts
     const allText = tableStructure.rows
       .map(row => row.rawText)
       .join('\n');
     
-    console.log('Combined structured text (first 500 chars):', allText.substring(0, 500));
-    
-    // Use enhanced regex approach with strict amount validation
     const targetDesignations = this.getTargetDesignations();
     const designationPattern = targetDesignations.join('|');
 
     const transactionRegex = new RegExp(
       `(\\d{1,2}[-\/]\\d{1,2}[-\/]\\d{4}).*?(${designationPattern}).*?` +
-        `\\s+([\\d,]{1,10}\\.\\d{2})(?!\\d)`, // Strict amount format with length limit
+        `\\s+([\\d,]{1,10}\\.\\d{2})(?!\\d)`,
       'gi'
     );
 
@@ -634,21 +786,30 @@ export class PdfTableParserService {
       const amount = this.parseAmountEnhanced(match[3]);
       
       if (amount > 0 && amount <= 10000000) {
+        // Determine debit/credit based on designation
+        let debit = 0;
+        let credit = 0;
+        
+        if (this.isLikelyCredit(match[2])) {
+          credit = amount;
+        } else {
+          debit = amount;
+        }
+        
         transactions.push({
           date: match[1],
           designation: match[2],
-          debit: amount,
-          credit: 0,
-          montant: -amount
+          debit: debit,
+          credit: credit,
+          montant: credit - debit
         });
         
         console.log('✓ Regex found:', {
           date: match[1],
           designation: match[2],
-          amount: amount
+          debit: debit,
+          credit: credit
         });
-      } else {
-        console.warn('Rejected regex amount:', amount, 'from:', match[3]);
       }
     }
     
