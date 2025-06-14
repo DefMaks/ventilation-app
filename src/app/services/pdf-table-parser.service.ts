@@ -200,7 +200,7 @@ export class PdfTableParserService {
 
     dataRows.forEach((row, index) => {
       if (row.cellCount >= 5) { // Must have all 5 columns
-        console.log(`Processing row ${index + 1}:`, row.cells.map(c => `"${c.text}"`));
+        console.log(`\nProcessing row ${index + 1}:`, row.cells.map(c => `"${c.text}"`));
         
         const date = row.cells[finalMapping.dateCol]?.text || '';
         const narrative = row.cells[finalMapping.narrativeCol]?.text || '';
@@ -213,34 +213,89 @@ export class PdfTableParserService {
         console.log(`  Credit text: "${creditText}"`);
 
         // Parse amounts - be more careful about empty cells
-        const debit = this.parseAmount(debitText);
-        const credit = this.parseAmount(creditText);
+        const debitAmount = this.parseAmount(debitText);
+        const creditAmount = this.parseAmount(creditText);
 
-        console.log(`  Parsed debit: ${debit}`);
-        console.log(`  Parsed credit: ${credit}`);
+        console.log(`  Parsed debit: ${debitAmount}`);
+        console.log(`  Parsed credit: ${creditAmount}`);
+
+        // Check if this is a meaningful transaction row
+        const hasValidDate = this.isValidDate(date);
+        const hasValidNarrative = narrative.length > 0;
+        const hasAmount = debitAmount > 0 || creditAmount > 0;
+
+        console.log(`  Valid date: ${hasValidDate}, Valid narrative: ${hasValidNarrative}, Has amount: ${hasAmount}`);
 
         // Only add if we have meaningful data
-        if (date && narrative && (debit > 0 || credit > 0)) {
+        if (hasValidDate && hasValidNarrative && hasAmount) {
+          // CRITICAL FIX: Properly assign debit and credit
+          let finalDebit = 0;
+          let finalCredit = 0;
+          let montant = 0;
+
+          // If debit column has value and credit column is empty
+          if (debitAmount > 0 && creditAmount === 0) {
+            finalDebit = debitAmount;
+            finalCredit = 0;
+            montant = -debitAmount; // Negative for debit
+            console.log(`  → DEBIT transaction: ${finalDebit}`);
+          }
+          // If credit column has value and debit column is empty
+          else if (creditAmount > 0 && debitAmount === 0) {
+            finalDebit = 0;
+            finalCredit = creditAmount;
+            montant = creditAmount; // Positive for credit
+            console.log(`  → CREDIT transaction: ${finalCredit}`);
+          }
+          // If both columns have values (unusual but possible)
+          else if (debitAmount > 0 && creditAmount > 0) {
+            finalDebit = debitAmount;
+            finalCredit = creditAmount;
+            montant = creditAmount - debitAmount; // Net amount
+            console.log(`  → BOTH debit: ${finalDebit}, credit: ${finalCredit}, net: ${montant}`);
+          }
+          // If neither column has a value (shouldn't happen if hasAmount is true)
+          else {
+            console.log(`  → SKIPPING: No valid amounts found`);
+            return;
+          }
+
           const transaction = {
             date: date,
             designation: narrative,
-            debit: debit,
-            credit: credit,
-            montant: credit - debit // Net amount (positive for credit, negative for debit)
+            debit: finalDebit,
+            credit: finalCredit,
+            montant: montant
           };
           
           console.log(`  ✅ Adding transaction:`, transaction);
           transactions.push(transaction);
         } else {
-          console.log(`  ❌ Skipping row - insufficient data`);
+          console.log(`  ❌ Skipping row - insufficient data (date: ${hasValidDate}, narrative: ${hasValidNarrative}, amount: ${hasAmount})`);
         }
       } else {
         console.log(`Row ${index + 1} has only ${row.cellCount} cells, expected 5`);
       }
     });
 
-    console.log(`Total transactions extracted: ${transactions.length}`);
+    console.log(`\n🎯 Total transactions extracted: ${transactions.length}`);
     return transactions;
+  }
+
+  /**
+   * Check if a string looks like a valid date
+   */
+  private isValidDate(dateStr: string): boolean {
+    if (!dateStr || dateStr.trim() === '') return false;
+    
+    // Check for common date patterns: DD-MM-YYYY, DD/MM/YYYY, etc.
+    const datePatterns = [
+      /^\d{1,2}[-\/]\d{1,2}[-\/]\d{4}$/,
+      /^\d{4}[-\/]\d{1,2}[-\/]\d{1,2}$/,
+      /^\d{1,2}\s+\w+\s+\d{4}$/
+    ];
+    
+    return datePatterns.some(pattern => pattern.test(dateStr.trim()));
   }
 
   /**
@@ -258,14 +313,14 @@ export class PdfTableParserService {
    * Parse amount from text - improved to handle empty cells properly
    */
   private parseAmount(text: string): number {
-    if (!text || text.trim() === '' || text.trim() === '-') {
+    if (!text || text.trim() === '' || text.trim() === '-' || text.trim() === '0.00') {
       return 0;
     }
     
     // Remove any non-numeric characters except commas and decimals
     const cleanText = text.replace(/[^\d,.-]/g, '');
     
-    if (!cleanText || cleanText === '') {
+    if (!cleanText || cleanText === '' || cleanText === '-') {
       return 0;
     }
     
@@ -274,9 +329,11 @@ export class PdfTableParserService {
         const parts = cleanText.split('.');
         const integerPart = parts[0].replace(/,/g, '');
         const decimalPart = parts[1];
-        return parseFloat(`${integerPart}.${decimalPart}`) || 0;
+        const result = parseFloat(`${integerPart}.${decimalPart}`) || 0;
+        return result;
       } else {
-        return parseFloat(cleanText.replace(/,/g, '')) || 0;
+        const result = parseFloat(cleanText.replace(/,/g, '')) || 0;
+        return result;
       }
     } catch (error) {
       console.warn(`Failed to parse amount: "${text}"`, error);

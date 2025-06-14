@@ -47,7 +47,7 @@ export class HomePage {
     this.validationErrors = [];
 
     try {
-      console.log('Processing file:', file.name);
+      console.log('🔍 Processing file:', file.name);
       const arrayBuffer = await file.arrayBuffer();
       const pdf = await getDocument({ data: arrayBuffer }).promise;
       const result: TransactionData[] = [];
@@ -71,37 +71,39 @@ export class HomePage {
         const page = await pdf.getPage(i);
         
         // NEW: Try table-aware parsing first
-        console.log(`\n=== PAGE ${i} - TRYING TABLE PARSER ===`);
+        console.log(`\n🔍 === PAGE ${i} - TRYING TABLE PARSER ===`);
         try {
           const tableStructure = await this.pdfTableParser.analyzeTableStructure(page);
-          console.log('Table structure found:', tableStructure);
-          console.log('Headers:', tableStructure.headers);
-          console.log('Number of rows:', tableStructure.rows.length);
+          console.log('📊 Table structure found:', tableStructure);
+          console.log('📋 Headers:', tableStructure.headers);
+          console.log('📝 Number of rows:', tableStructure.rows.length);
           
           // Log first few rows for inspection
+          console.log('\n📄 First 5 rows:');
           tableStructure.rows.slice(0, 5).forEach((row, index) => {
             console.log(`Row ${index}: ${row.cellCount} cells -`, row.cells.map(c => `"${c.text}"`));
           });
           
           const tableTransactions = this.pdfTableParser.extractTransactionsFromTable(tableStructure);
-          console.log('Transactions from table parser:', tableTransactions);
+          console.log('💰 Transactions from table parser:', tableTransactions);
           
           if (tableTransactions.length > 0) {
             result.push(...tableTransactions);
             console.log(`✅ Table parser found ${tableTransactions.length} transactions on page ${i}`);
             continue; // Skip regex parsing if table parsing worked
+          } else {
+            console.log('⚠️ Table parser found no transactions, trying regex fallback...');
           }
         } catch (tableError) {
-          console.warn('Table parsing failed, falling back to regex:', tableError);
+          console.warn('❌ Table parsing failed, falling back to regex:', tableError);
         }
 
-        // FALLBACK: Original regex approach with improved debit/credit logic
-        console.log(`\n=== PAGE ${i} - FALLBACK TO REGEX ===`);
+        // FALLBACK: Original regex approach - but this should rarely be used now
+        console.log(`\n🔄 === PAGE ${i} - FALLBACK TO REGEX ===`);
         const content = await page.getTextContent();
         const text = content.items.map((item: any) => item.str).join(' ');
         
         // Enhanced regex to capture the 5-column structure
-        // Pattern: Date Designation Amount1 Amount2 (where Amount1 could be debit, Amount2 could be credit)
         const transactionRegex = new RegExp(
           `(\\d{2}-\\d{2}-\\d{4}).*?(${designationPattern}).*?` +
             `([\\d,]+\\.\\d{2})(?:\\s+([\\d,]+\\.\\d{2}))?`, // Two amounts: first and second
@@ -113,21 +115,15 @@ export class HomePage {
           const amount1 = this.parseAmount(match[3]);
           const amount2 = match[4] ? this.parseAmount(match[4]) : 0;
           
-          // Improved logic for determining debit vs credit
-          // In bank statements, typically:
-          // - If only one amount: check if it's in a debit or credit context
-          // - If two amounts: first is transaction amount, second might be running balance
-          
+          // For regex fallback, assume single amounts are debits unless proven otherwise
           let debit = 0;
           let credit = 0;
           let montant = 0;
           
-          // For expense tracking (which this appears to be), most transactions are debits
-          // But we need to be smarter about this
           const designation = match[2].toUpperCase();
           
           // Check if this looks like income/credit based on designation
-          const creditKeywords = ['credit'];
+          const creditKeywords = ['RECEIPT', 'DEPOSIT', 'INCOME', 'CREDIT'];
           const isLikelyCredit = creditKeywords.some(keyword => designation.includes(keyword));
           
           if (amount2 === 0) {
@@ -142,8 +138,7 @@ export class HomePage {
               montant = -amount1; // Negative for debit
             }
           } else {
-            // Two amounts - this is tricky without seeing the actual PDF structure
-            // For now, assume first amount is the transaction, second is balance
+            // Two amounts - assume first is transaction, second is balance
             if (isLikelyCredit) {
               credit = amount1;
               debit = 0;
@@ -165,7 +160,14 @@ export class HomePage {
         }
       }
 
-      console.log('Final transactions extracted:', result);
+      console.log('\n🎯 Final transactions extracted:', result);
+      console.log(`📊 Total: ${result.length} transactions`);
+      
+      // Log summary of debit vs credit
+      const totalDebits = result.reduce((sum, t) => sum + t.debit, 0);
+      const totalCredits = result.reduce((sum, t) => sum + t.credit, 0);
+      console.log(`💸 Total Debits: ${totalDebits.toLocaleString('en-US', {minimumFractionDigits: 2})}`);
+      console.log(`💰 Total Credits: ${totalCredits.toLocaleString('en-US', {minimumFractionDigits: 2})}`);
       
       // Store original USD amounts and display them directly (no conversion)
       this.usdAmounts = [...result];
@@ -175,11 +177,11 @@ export class HomePage {
       const validation = this.excelTemplateService.validateData(this.transactions);
       if (!validation.isValid) {
         this.validationErrors = validation.errors;
-        console.warn('Erreurs de validation:', validation.errors);
+        console.warn('⚠️ Validation errors:', validation.errors);
       }
 
     } catch (error) {
-      console.error('Erreur de traitement PDF:', error);
+      console.error('❌ Error processing PDF:', error);
       this.validationErrors = ['Erreur lors du traitement du PDF: ' + (error as Error).message];
     } finally {
       this.isProcessing = false;
