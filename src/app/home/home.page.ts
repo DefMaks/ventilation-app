@@ -1,9 +1,8 @@
 import { Component } from '@angular/core';
-
 import * as XLSX from 'xlsx';
-// Importation optimisée de PDF.js
 import * as pdfjsLib from 'pdfjs-dist';
 import { getDocument, GlobalWorkerOptions } from 'pdfjs-dist';
+import { ExcelTemplateService, TransactionData } from '../services/excel-template.service';
 
 // Configuration du worker
 GlobalWorkerOptions.workerSrc =
@@ -16,57 +15,24 @@ GlobalWorkerOptions.workerSrc =
   standalone: false,
 })
 export class HomePage {
-  transactions: any[] = [];
+  transactions: TransactionData[] = [];
+  isProcessing = false;
+  validationErrors: string[] = [];
 
-  /*
-  async onFileSelected(event: any) {
-    const file = event.target.files[0];
-    if (!file) return;
-
-    try {
-      console.log(file);
-      const arrayBuffer = await file.arrayBuffer();
-      const pdf = await getDocument({ data: arrayBuffer }).promise;
-
-      const result: any[] = [];
-
-      for (let i = 1; i <= pdf.numPages; i++) {
-        const page = await pdf.getPage(i);
-        const content = await page.getTextContent();
-        const strings = content.items.map((item: any) => item.str);
-        const lines = strings.join('\n').split(/\n+/);
-
-        lines.forEach((line) => {
-          // Correction de la regex (supprimez les doubles backslashes)
-          const match = line.match(
-            /(\d{2}-\d{2}-\d{4}).+?(PMT TOURISME|FPT INVESTISSEMENT|ONT FICHE STATISTIQUES|APPUI ADM DU TOURISME|ICCN|SITE TOURISTIQUE|COMITE DE SUIVI ET VALIDATION|ONT CONTROLE ET INSPECTION DES UNITES TOURISTIQUES).*?(\d{1,3}(?:[.,]\d{3})*(?:[.,]\d{2}))/
-          );
-
-          if (match) {
-            result.push({
-              date: match[1],
-              designation: match[2],
-              montant: parseFloat(match[3].replace(/,/g, '').replace(/ /g, '')),
-            });
-          }
-        });
-      }
-      console.log(result);
-      this.transactions = result;
-    } catch (error) {
-      console.error('Error processing PDF:', error);
-    }
-  }
-  */
+  constructor(private excelTemplateService: ExcelTemplateService) {}
 
   async onFileSelected(event: any) {
     const file = event.target.files[0];
     if (!file) return;
 
+    this.isProcessing = true;
+    this.validationErrors = [];
+
     try {
+      console.log('Processing file:', file.name);
       const arrayBuffer = await file.arrayBuffer();
       const pdf = await getDocument({ data: arrayBuffer }).promise;
-      const result: any[] = [];
+      const result: TransactionData[] = [];
 
       // Pattern optimisé pour vos besoins
       const targetDesignations = [
@@ -114,14 +80,41 @@ export class HomePage {
         }
       }
 
-      console.log('Transactions filtrées:', result);
+      console.log('Transactions extraites:', result);
       this.transactions = result;
+
+      // Validate extracted data
+      const validation = this.excelTemplateService.validateData(result);
+      if (!validation.isValid) {
+        this.validationErrors = validation.errors;
+        console.warn('Erreurs de validation:', validation.errors);
+      }
+
     } catch (error) {
       console.error('Erreur de traitement PDF:', error);
+      this.validationErrors = ['Erreur lors du traitement du PDF: ' + (error as Error).message];
+    } finally {
+      this.isProcessing = false;
     }
   }
 
   exportToExcel() {
+    if (this.transactions.length === 0) {
+      console.warn('Aucune transaction à exporter');
+      return;
+    }
+
+    try {
+      // Create Excel template with extracted data
+      this.excelTemplateService.createExcelTemplate(this.transactions);
+      console.log('Template Excel créé avec succès');
+    } catch (error) {
+      console.error('Erreur lors de la création du template Excel:', error);
+    }
+  }
+
+  exportToExcelLegacy() {
+    // Keep the original export functionality as backup
     const syntheseMap = new Map<string, number>();
     this.transactions.forEach((t) => {
       const total = syntheseMap.get(t.designation) || 0;
@@ -143,6 +136,30 @@ export class HomePage {
       XLSX.utils.json_to_sheet(this.transactions),
       'Détails'
     );
-    XLSX.writeFile(wb, 'ventilation_2024.xlsx');
+    XLSX.writeFile(wb, 'ventilation_2024_legacy.xlsx');
+  }
+
+  async onTemplateFileSelected(event: any) {
+    const file = event.target.files[0];
+    if (!file || this.transactions.length === 0) {
+      console.warn('Veuillez d\'abord traiter un PDF et sélectionner un template Excel');
+      return;
+    }
+
+    this.isProcessing = true;
+
+    try {
+      await this.excelTemplateService.updateExcelTemplate(file, this.transactions);
+      console.log('Template Excel mis à jour avec succès');
+    } catch (error) {
+      console.error('Erreur lors de la mise à jour du template:', error);
+    } finally {
+      this.isProcessing = false;
+    }
+  }
+
+  clearData() {
+    this.transactions = [];
+    this.validationErrors = [];
   }
 }
