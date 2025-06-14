@@ -4,7 +4,6 @@
   "overrides": [
     {
       "files": ["*.ts"],
-      "excludedFiles": ["*.spec.ts"],
       "parserOptions": {
         "project": ["tsconfig.json"],
         "createDefaultProgram": true
@@ -37,20 +36,6 @@
             "style": "camelCase"
           }
         ]
-      }
-    },
-    {
-      "files": ["*.spec.ts"],
-      "parserOptions": {
-        "project": ["tsconfig.spec.json"],
-        "createDefaultProgram": true
-      },
-      "extends": [
-        "plugin:@angular-eslint/recommended",
-        "plugin:@angular-eslint/template/process-inline-templates"
-      ],
-      "rules": {
-        "@angular-eslint/prefer-standalone": "off"
       }
     },
     {
