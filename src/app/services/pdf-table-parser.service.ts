@@ -168,44 +168,78 @@ export class PdfTableParserService {
   extractTransactionsFromTable(tableStructure: TableStructure): any[] {
     const transactions: any[] = [];
     
-    // Find column indices
-    const dateCol = this.findColumnIndex(tableStructure.headers, ['date', 'transaction']);
+    // Find column indices for the 5-column structure
+    const transactionDateCol = this.findColumnIndex(tableStructure.headers, ['transaction date', 'trans date']);
+    const valueDateCol = this.findColumnIndex(tableStructure.headers, ['value date']);
     const narrativeCol = this.findColumnIndex(tableStructure.headers, ['narrative', 'description']);
     const debitCol = this.findColumnIndex(tableStructure.headers, ['debit']);
     const creditCol = this.findColumnIndex(tableStructure.headers, ['credit']);
 
-    console.log('Column mapping:', { dateCol, narrativeCol, debitCol, creditCol });
+    console.log('Column mapping:', { 
+      transactionDateCol, 
+      valueDateCol, 
+      narrativeCol, 
+      debitCol, 
+      creditCol 
+    });
     console.log('Headers found:', tableStructure.headers);
 
+    // If we can't find the expected columns, try positional mapping
+    // Based on your description: "Transaction Date", "Value Date", "Narrative", "Debit", "Credit"
+    const finalMapping = {
+      dateCol: transactionDateCol >= 0 ? transactionDateCol : 0,
+      narrativeCol: narrativeCol >= 0 ? narrativeCol : 2,
+      debitCol: debitCol >= 0 ? debitCol : 3,
+      creditCol: creditCol >= 0 ? creditCol : 4
+    };
+
+    console.log('Final column mapping:', finalMapping);
+
     // Process data rows (skip header rows)
-    const dataRows = tableStructure.rows.slice(3); // Skip first 3 rows (likely headers)
+    const dataRows = tableStructure.rows.slice(1); // Skip first row (header)
 
     dataRows.forEach((row, index) => {
-      if (row.cellCount >= 3) { // Minimum cells for a valid transaction
-        console.log(`Row ${index} has ${row.cellCount} cells:`, row.cells.map(c => c.text));
+      if (row.cellCount >= 5) { // Must have all 5 columns
+        console.log(`Processing row ${index + 1}:`, row.cells.map(c => `"${c.text}"`));
         
-        const date = dateCol >= 0 ? row.cells[dateCol]?.text : '';
-        const narrative = narrativeCol >= 0 ? row.cells[narrativeCol]?.text : '';
-        const debitText = debitCol >= 0 ? row.cells[debitCol]?.text : '';
-        const creditText = creditCol >= 0 ? row.cells[creditCol]?.text : '';
+        const date = row.cells[finalMapping.dateCol]?.text || '';
+        const narrative = row.cells[finalMapping.narrativeCol]?.text || '';
+        const debitText = row.cells[finalMapping.debitCol]?.text || '';
+        const creditText = row.cells[finalMapping.creditCol]?.text || '';
 
-        // Parse amounts
+        console.log(`  Date: "${date}"`);
+        console.log(`  Narrative: "${narrative}"`);
+        console.log(`  Debit text: "${debitText}"`);
+        console.log(`  Credit text: "${creditText}"`);
+
+        // Parse amounts - be more careful about empty cells
         const debit = this.parseAmount(debitText);
         const credit = this.parseAmount(creditText);
 
+        console.log(`  Parsed debit: ${debit}`);
+        console.log(`  Parsed credit: ${credit}`);
+
         // Only add if we have meaningful data
         if (date && narrative && (debit > 0 || credit > 0)) {
-          transactions.push({
+          const transaction = {
             date: date,
             designation: narrative,
             debit: debit,
             credit: credit,
             montant: credit - debit // Net amount (positive for credit, negative for debit)
-          });
+          };
+          
+          console.log(`  ✅ Adding transaction:`, transaction);
+          transactions.push(transaction);
+        } else {
+          console.log(`  ❌ Skipping row - insufficient data`);
         }
+      } else {
+        console.log(`Row ${index + 1} has only ${row.cellCount} cells, expected 5`);
       }
     });
 
+    console.log(`Total transactions extracted: ${transactions.length}`);
     return transactions;
   }
 
@@ -221,21 +255,32 @@ export class PdfTableParserService {
   }
 
   /**
-   * Parse amount from text
+   * Parse amount from text - improved to handle empty cells properly
    */
   private parseAmount(text: string): number {
-    if (!text || text.trim() === '') return 0;
+    if (!text || text.trim() === '' || text.trim() === '-') {
+      return 0;
+    }
     
     // Remove any non-numeric characters except commas and decimals
     const cleanText = text.replace(/[^\d,.-]/g, '');
     
-    if (cleanText.includes('.')) {
-      const parts = cleanText.split('.');
-      const integerPart = parts[0].replace(/,/g, '');
-      const decimalPart = parts[1];
-      return parseFloat(`${integerPart}.${decimalPart}`);
-    } else {
-      return parseFloat(cleanText.replace(/,/g, ''));
+    if (!cleanText || cleanText === '') {
+      return 0;
+    }
+    
+    try {
+      if (cleanText.includes('.')) {
+        const parts = cleanText.split('.');
+        const integerPart = parts[0].replace(/,/g, '');
+        const decimalPart = parts[1];
+        return parseFloat(`${integerPart}.${decimalPart}`) || 0;
+      } else {
+        return parseFloat(cleanText.replace(/,/g, '')) || 0;
+      }
+    } catch (error) {
+      console.warn(`Failed to parse amount: "${text}"`, error);
+      return 0;
     }
   }
 }

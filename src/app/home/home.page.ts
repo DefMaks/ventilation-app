@@ -80,7 +80,7 @@ export class HomePage {
           
           // Log first few rows for inspection
           tableStructure.rows.slice(0, 5).forEach((row, index) => {
-            console.log(`Row ${index}: ${row.cellCount} cells -`, row.cells.map(c => c.text));
+            console.log(`Row ${index}: ${row.cellCount} cells -`, row.cells.map(c => `"${c.text}"`));
           });
           
           const tableTransactions = this.pdfTableParser.extractTransactionsFromTable(tableStructure);
@@ -95,16 +95,16 @@ export class HomePage {
           console.warn('Table parsing failed, falling back to regex:', tableError);
         }
 
-        // FALLBACK: Original regex approach
+        // FALLBACK: Original regex approach with improved debit/credit logic
         console.log(`\n=== PAGE ${i} - FALLBACK TO REGEX ===`);
         const content = await page.getTextContent();
         const text = content.items.map((item: any) => item.str).join(' ');
         
-        // Enhanced regex to capture amounts with commas and decimals
-        // Look for patterns like: date designation amount1 amount2 (where amount2 might be balance)
+        // Enhanced regex to capture the 5-column structure
+        // Pattern: Date Designation Amount1 Amount2 (where Amount1 could be debit, Amount2 could be credit)
         const transactionRegex = new RegExp(
           `(\\d{2}-\\d{2}-\\d{4}).*?(${designationPattern}).*?` +
-            `([\\d,]+\\.\\d{2})(?:\\s+([\\d,]+\\.\\d{2}))?`, // Two amounts: debit/credit and possibly balance
+            `([\\d,]+\\.\\d{2})(?:\\s+([\\d,]+\\.\\d{2}))?`, // Two amounts: first and second
           'gi'
         );
 
@@ -113,28 +113,46 @@ export class HomePage {
           const amount1 = this.parseAmount(match[3]);
           const amount2 = match[4] ? this.parseAmount(match[4]) : 0;
           
-          // Logic to determine if it's a debit or credit
+          // Improved logic for determining debit vs credit
           // In bank statements, typically:
-          // - If there's only one amount, check context or assume it's a debit (expense)
-          // - If there are two amounts, the first is usually the transaction amount, second is balance
+          // - If only one amount: check if it's in a debit or credit context
+          // - If two amounts: first is transaction amount, second might be running balance
           
           let debit = 0;
           let credit = 0;
           let montant = 0;
           
-          // For now, let's assume single amounts are debits (expenses) since this is an expense tracking system
-          // You may need to adjust this logic based on your specific PDF format
+          // For expense tracking (which this appears to be), most transactions are debits
+          // But we need to be smarter about this
+          const designation = match[2].toUpperCase();
+          
+          // Check if this looks like income/credit based on designation
+          const creditKeywords = ['RECETTE', 'DEPOT', 'VIREMENT RECU', 'CREDIT', 'REMBOURSEMENT'];
+          const isLikelyCredit = creditKeywords.some(keyword => designation.includes(keyword));
+          
           if (amount2 === 0) {
-            // Single amount - assume it's a debit (expense)
-            debit = amount1;
-            credit = 0;
-            montant = -amount1; // Negative for debit
+            // Single amount
+            if (isLikelyCredit) {
+              credit = amount1;
+              debit = 0;
+              montant = amount1; // Positive for credit
+            } else {
+              debit = amount1;
+              credit = 0;
+              montant = -amount1; // Negative for debit
+            }
           } else {
-            // Two amounts - need to determine which is debit/credit based on context
-            // This might need adjustment based on your PDF format
-            debit = amount1;
-            credit = 0;
-            montant = -amount1; // Negative for debit
+            // Two amounts - this is tricky without seeing the actual PDF structure
+            // For now, assume first amount is the transaction, second is balance
+            if (isLikelyCredit) {
+              credit = amount1;
+              debit = 0;
+              montant = amount1;
+            } else {
+              debit = amount1;
+              credit = 0;
+              montant = -amount1;
+            }
           }
 
           result.push({
