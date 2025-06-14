@@ -41,7 +41,7 @@ export class ExcelTemplateService {
     // Set column widths to match PDF layout
     ws['!cols'] = [
       { width: 8 },   // Column A (N° CPTE)
-      { width: 65 },  // Column B (DESIGNATION) - wider for long text
+      { width:65 },  // Column B (DESIGNATION) - wider for long text
       { width: 18 },  // Column C (MONTANT)
       { width: 12 },  // Column D
       { width: 12 },  // Column E
@@ -168,13 +168,18 @@ export class ExcelTemplateService {
     data.push(['', '', '', '', '', '']);
     data.push(['', 'SOLDE AU 31 DECEMBRE 2024', { f: 'C16-C68' }, '', '', '']);
     
-    // Signature section
+    // Signature section - Complete with names from the image
     data.push(['', '', '', '', '', '']);
     data.push(['', '', '', '', '', '']);
-    data.push(['Fait à Kinshasa, le _______________', '', '', 'Le Directeur Financier', '', '']);
+    data.push(['', '', '', '', '', '']);
+    data.push(['Fait à Kinshasa, le _______________', '', '', '', '', '']);
     data.push(['', '', '', '', '', '']);
     data.push(['', '', '', '', '', '']);
-    data.push(['Le Directeur Général', '', '', '________________________', '', '']);
+    data.push(['LE DIRECTEUR FINANCIER,', '', '', 'LE DIRECTEUR GENERAL', '', '']);
+    data.push(['', '', '', '', '', '']);
+    data.push(['', '', '', '', '', '']);
+    data.push(['', '', '', '', '', '']);
+    data.push(['David MINGA MINGA', '', '', 'Jolie YOMBO MUKENDI', '', '']);
 
     return data;
   }
@@ -190,7 +195,7 @@ export class ExcelTemplateService {
    * Format worksheet cells for better appearance
    */
   private formatWorksheet(ws: XLSX.WorkSheet): void {
-    const range = XLSX.utils.decode_range(ws['!ref'] || 'A1:F80');
+    const range = XLSX.utils.decode_range(ws['!ref'] || 'A1:F85');
     
     for (let R = range.s.r; R <= range.e.r; ++R) {
       for (let C = range.s.c; C <= range.e.c; ++C) {
@@ -202,15 +207,23 @@ export class ExcelTemplateService {
           ws[cellAddress].z = '#,##0.00';
         }
         
-        // Bold headers and account numbers
+        // Bold headers, account numbers, and signature titles
         if (R === 0 || R === 1 || R === 2 || R === 5 || R === 7 || 
-            (C === 0 && typeof ws[cellAddress].v === 'string' && /^\d+$/.test(ws[cellAddress].v))) {
+            (C === 0 && typeof ws[cellAddress].v === 'string' && /^\d+$/.test(ws[cellAddress].v)) ||
+            (typeof ws[cellAddress].v === 'string' && 
+             (ws[cellAddress].v.includes('LE DIRECTEUR') || ws[cellAddress].v.includes('David MINGA') || ws[cellAddress].v.includes('Jolie YOMBO')))) {
           if (!ws[cellAddress].s) ws[cellAddress].s = {};
           ws[cellAddress].s.font = { bold: true };
         }
         
         // Center align headers
         if (R <= 7) {
+          if (!ws[cellAddress].s) ws[cellAddress].s = {};
+          ws[cellAddress].s.alignment = { horizontal: 'center' };
+        }
+        
+        // Center align signature section
+        if (R >= 75) { // Signature section starts around row 75
           if (!ws[cellAddress].s) ws[cellAddress].s = {};
           ws[cellAddress].s.alignment = { horizontal: 'center' };
         }
