@@ -1,20 +1,46 @@
-<ion-header [translucent]="true">
-  <ion-toolbar>
-    <ion-title>
-      Blank
-    </ion-title>
+<ion-header>
+  <ion-toolbar color="primary">
+    <ion-title> Ventilation PDF → Excel </ion-title>
   </ion-toolbar>
 </ion-header>
 
-<ion-content [fullscreen]="true">
-  <ion-header collapse="condense">
-    <ion-toolbar>
-      <ion-title size="large">Blank</ion-title>
-    </ion-toolbar>
-  </ion-header>
+<ion-content class="ion-padding">
+  <ion-card>
+    <ion-card-header>
+      <ion-card-title>Importer un fichier PDF</ion-card-title>
+    </ion-card-header>
+    <ion-card-content>
+      <input
+        type="file"
+        (change)="onFileSelected($event)"
+        accept="application/pdf"
+      />
+    </ion-card-content>
+  </ion-card>
 
-  <div id="container">
-    <strong>Ready to create an app?</strong>
-    <p>Start with Ionic <a target="_blank" rel="noopener noreferrer" href="https://ionicframework.com/docs/components">UI Components</a></p>
-  </div>
+  <ion-button
+    expand="block"
+    color="success"
+    [disabled]="!transactions.length"
+    (click)="exportToExcel()"
+  >
+    Exporter vers Excel
+  </ion-button>
+
+  <ion-card *ngIf="transactions.length">
+    <ion-card-header>
+      <ion-card-title>Données extraites</ion-card-title>
+    </ion-card-header>
+    <ion-card-content>
+      <ion-list>
+        <ion-item *ngFor="let t of transactions">
+          <ion-label>
+            <h3>{{ t.date }}</h3>
+            <p>{{ t.designation }}</p>
+            <strong>{{ t.montant | number:'1.2-2' }} $</strong>
+          </ion-label>
+        </ion-item>
+      </ion-list>
+    </ion-card-content>
+  </ion-card>
 </ion-content>
