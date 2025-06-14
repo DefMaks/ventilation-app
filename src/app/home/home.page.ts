@@ -70,48 +70,41 @@ export class HomePage {
         const content = await page.getTextContent();
         const text = content.items.map((item: any) => item.str).join(' ');
 
-        // Enhanced regex to capture amounts with better structure
-        // Look for: date designation debit_amount credit_amount balance
+        // Enhanced regex to capture amounts with commas and decimals
+        // Look for patterns like: date designation amount1 amount2 (where amount2 might be balance)
         const transactionRegex = new RegExp(
           `(\\d{2}-\\d{2}-\\d{4}).*?(${designationPattern}).*?` +
-            `([\\d,]+\\.\\d{2})\\s+([\\d,]+\\.\\d{2})\\s+([\\d,]+\\.\\d{2})`, // Three amounts: debit, credit, balance
+            `([\\d,]+\\.\\d{2})(?:\\s+([\\d,]+\\.\\d{2}))?`, // Two amounts: debit/credit and possibly balance
           'gi'
         );
 
         let match;
         while ((match = transactionRegex.exec(text)) !== null) {
-          const amount1 = this.parseAmount(match[3]); // First amount
-          const amount2 = this.parseAmount(match[4]); // Second amount  
-          const amount3 = this.parseAmount(match[5]); // Third amount (balance)
+          const amount1 = this.parseAmount(match[3]);
+          const amount2 = match[4] ? this.parseAmount(match[4]) : 0;
+          
+          // Logic to determine if it's a debit or credit
+          // In bank statements, typically:
+          // - If there's only one amount, check context or assume it's a debit (expense)
+          // - If there are two amounts, the first is usually the transaction amount, second is balance
           
           let debit = 0;
           let credit = 0;
           let montant = 0;
           
-          // In typical bank statement format:
-          // If first amount is 0.00 and second has value = credit transaction
-          // If first amount has value and second is 0.00 = debit transaction
-          if (amount1 === 0 && amount2 > 0) {
-            // Credit transaction
-            credit = amount2;
-            debit = 0;
-            montant = amount2; // Positive for credit
-          } else if (amount1 > 0 && amount2 === 0) {
-            // Debit transaction
+          // For now, let's assume single amounts are debits (expenses) since this is an expense tracking system
+          // You may need to adjust this logic based on your specific PDF format
+          if (amount2 === 0) {
+            // Single amount - assume it's a debit (expense)
             debit = amount1;
             credit = 0;
             montant = -amount1; // Negative for debit
-          } else if (amount1 > 0 && amount2 > 0) {
-            // Both amounts present - need to determine based on context
-            // For expense tracking, assume first column is debit, second is credit
-            debit = amount1;
-            credit = amount2;
-            montant = amount2 - amount1; // Net amount
           } else {
-            // Fallback - treat as debit if only one amount
-            debit = amount1 > 0 ? amount1 : amount2;
+            // Two amounts - need to determine which is debit/credit based on context
+            // This might need adjustment based on your PDF format
+            debit = amount1;
             credit = 0;
-            montant = -(amount1 > 0 ? amount1 : amount2);
+            montant = -amount1; // Negative for debit
           }
 
           result.push({
@@ -121,48 +114,6 @@ export class HomePage {
             credit: credit,
             montant: montant,
           });
-        }
-
-        // Fallback regex for simpler format (two amounts only)
-        if (result.length === 0) {
-          const simpleRegex = new RegExp(
-            `(\\d{2}-\\d{2}-\\d{4}).*?(${designationPattern}).*?` +
-              `([\\d,]+\\.\\d{2})(?:\\s+([\\d,]+\\.\\d{2}))?`, // Two amounts: transaction and balance
-            'gi'
-          );
-
-          while ((match = simpleRegex.exec(text)) !== null) {
-            const amount1 = this.parseAmount(match[3]);
-            const amount2 = match[4] ? this.parseAmount(match[4]) : 0;
-            
-            // For expense tracking system, most transactions are likely debits
-            // But we should check if the designation suggests it's income/credit
-            const isLikelyCredit = match[2].toUpperCase().includes('RECETTE') || 
-                                   match[2].toUpperCase().includes('REVENUE') ||
-                                   match[2].toUpperCase().includes('INCOME');
-            
-            let debit = 0;
-            let credit = 0;
-            let montant = 0;
-            
-            if (isLikelyCredit) {
-              credit = amount1;
-              debit = 0;
-              montant = amount1; // Positive for credit
-            } else {
-              debit = amount1;
-              credit = 0;
-              montant = -amount1; // Negative for debit
-            }
-
-            result.push({
-              date: match[1],
-              designation: match[2],
-              debit: debit,
-              credit: credit,
-              montant: montant,
-            });
-          }
         }
       }
 
