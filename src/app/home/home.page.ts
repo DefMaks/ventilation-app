@@ -5,6 +5,7 @@ import * as pdfjsLib from 'pdfjs-dist';
 import { getDocument, GlobalWorkerOptions } from 'pdfjs-dist';
 import { ExcelTemplateService, TransactionData } from '../services/excel-template.service';
 import { CurrencyService } from '../services/currency.service';
+import { PdfTableParserService } from '../services/pdf-table-parser.service';
 import { CurrencyModalComponent } from '../components/currency-modal/currency-modal.component';
 import { TransactionQuickviewComponent } from '../components/transaction-quickview/transaction-quickview.component';
 
@@ -28,6 +29,7 @@ export class HomePage {
   constructor(
     private excelTemplateService: ExcelTemplateService,
     private currencyService: CurrencyService,
+    private pdfTableParser: PdfTableParserService,
     private modalController: ModalController
   ) {
     // Load stored exchange rate on initialization
@@ -67,6 +69,34 @@ export class HomePage {
 
       for (let i = 1; i <= pdf.numPages; i++) {
         const page = await pdf.getPage(i);
+        
+        // NEW: Try table-aware parsing first
+        console.log(`\n=== PAGE ${i} - TRYING TABLE PARSER ===`);
+        try {
+          const tableStructure = await this.pdfTableParser.analyzeTableStructure(page);
+          console.log('Table structure found:', tableStructure);
+          console.log('Headers:', tableStructure.headers);
+          console.log('Number of rows:', tableStructure.rows.length);
+          
+          // Log first few rows for inspection
+          tableStructure.rows.slice(0, 5).forEach((row, index) => {
+            console.log(`Row ${index}: ${row.cellCount} cells -`, row.cells.map(c => c.text));
+          });
+          
+          const tableTransactions = this.pdfTableParser.extractTransactionsFromTable(tableStructure);
+          console.log('Transactions from table parser:', tableTransactions);
+          
+          if (tableTransactions.length > 0) {
+            result.push(...tableTransactions);
+            console.log(`✅ Table parser found ${tableTransactions.length} transactions on page ${i}`);
+            continue; // Skip regex parsing if table parsing worked
+          }
+        } catch (tableError) {
+          console.warn('Table parsing failed, falling back to regex:', tableError);
+        }
+
+        // FALLBACK: Original regex approach
+        console.log(`\n=== PAGE ${i} - FALLBACK TO REGEX ===`);
         const content = await page.getTextContent();
         const text = content.items.map((item: any) => item.str).join(' ');
         
@@ -117,7 +147,7 @@ export class HomePage {
         }
       }
 
-      console.log('Transactions extraites (USD):', result);
+      console.log('Final transactions extracted:', result);
       
       // Store original USD amounts and display them directly (no conversion)
       this.usdAmounts = [...result];
