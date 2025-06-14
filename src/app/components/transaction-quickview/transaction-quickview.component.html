@@ -28,12 +28,24 @@
           <strong class="stat-value">{{ transactions.length }}</strong>
         </div>
         <div class="stat-item">
-          <span class="stat-label">Total USD</span>
-          <strong class="stat-value usd-amount">{{ formatCurrency(totalAmount, 'USD') }}</strong>
+          <span class="stat-label">Total Débits USD</span>
+          <strong class="stat-value debit-amount">{{ formatCurrency(getTotalDebits(), 'USD') }}</strong>
+        </div>
+        <div class="stat-item">
+          <span class="stat-label">Total Crédits USD</span>
+          <strong class="stat-value credit-amount">{{ formatCurrency(getTotalCredits(), 'USD') }}</strong>
+        </div>
+        <div class="stat-item">
+          <span class="stat-label">Net USD</span>
+          <strong class="stat-value" [class]="getNetAmount() >= 0 ? 'credit-amount' : 'debit-amount'">
+            {{ formatCurrency(getNetAmount(), 'USD') }}
+          </strong>
         </div>
         <div class="stat-item" *ngIf="exchangeRate">
-          <span class="stat-label">Équivalent CDF</span>
-          <strong class="stat-value cdf-amount">{{ formatCurrency(totalAmount * exchangeRate, 'CDF') }}</strong>
+          <span class="stat-label">Équivalent Net CDF</span>
+          <strong class="stat-value" [class]="getNetAmount() >= 0 ? 'credit-amount' : 'debit-amount'">
+            {{ formatCurrency(getNetAmount() * exchangeRate, 'CDF') }}
+          </strong>
         </div>
         <div class="stat-item" *ngIf="exchangeRate">
           <span class="stat-label">Taux appliqué</span>
@@ -108,15 +120,17 @@
               </div>
               <div *ngIf="transaction.debit > 0" class="amount-row conversion-row">
                 <span class="amount-label">Débit CDF:</span>
-                <span class="cdf-amount">{{ formatCurrency(transaction.debit * exchangeRate, 'CDF') }}</span>
+                <span class="cdf-amount debit-amount">{{ formatCurrency(transaction.debit * exchangeRate, 'CDF') }}</span>
               </div>
               <div *ngIf="transaction.credit > 0" class="amount-row conversion-row">
                 <span class="amount-label">Crédit CDF:</span>
-                <span class="cdf-amount">{{ formatCurrency(transaction.credit * exchangeRate, 'CDF') }}</span>
+                <span class="cdf-amount credit-amount">{{ formatCurrency(transaction.credit * exchangeRate, 'CDF') }}</span>
               </div>
               <div class="amount-row conversion-row">
                 <span class="amount-label">Net CDF:</span>
-                <strong class="cdf-amount">{{ formatCurrency(transaction.montant * exchangeRate, 'CDF') }}</strong>
+                <strong class="cdf-amount" [class]="transaction.montant >= 0 ? 'credit-amount' : 'debit-amount'">
+                  {{ formatCurrency(transaction.montant * exchangeRate, 'CDF') }}
+                </strong>
               </div>
             </div>
           </div>

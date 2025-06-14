@@ -30,6 +30,27 @@ export class TransactionQuickviewComponent {
     return Math.abs(amount) > 100000; // Amounts over 100K USD are suspicious
   }
 
+  /**
+   * Calculate total debits for this designation
+   */
+  getTotalDebits(): number {
+    return this.transactions.reduce((sum, t) => sum + (t.debit || 0), 0);
+  }
+
+  /**
+   * Calculate total credits for this designation
+   */
+  getTotalCredits(): number {
+    return this.transactions.reduce((sum, t) => sum + (t.credit || 0), 0);
+  }
+
+  /**
+   * Calculate net amount (credits - debits)
+   */
+  getNetAmount(): number {
+    return this.getTotalCredits() - this.getTotalDebits();
+  }
+
   formatCurrency(amount: number, currency: string = 'USD'): string {
     if (currency === 'CDF') {
       return `${amount.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })} ${currency}`;

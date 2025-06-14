@@ -67,6 +67,16 @@
         &.cdf-amount {
           color: var(--ion-color-success);
         }
+        
+        // Credit amounts - Green
+        &.credit-amount {
+          color: var(--ion-color-success);
+        }
+        
+        // Debit amounts - Red
+        &.debit-amount {
+          color: var(--ion-color-danger);
+        }
       }
     }
   }
@@ -209,8 +219,15 @@
         &.conversion-row {
           .cdf-amount {
             font-size: 0.8rem;
-            color: var(--ion-color-success);
             font-weight: 500;
+            
+            &.credit-amount {
+              color: var(--ion-color-success);
+            }
+            
+            &.debit-amount {
+              color: var(--ion-color-danger);
+            }
           }
         }
       }
@@ -283,7 +300,7 @@
 
 @media (min-width: 1024px) {
   .summary-stats {
-    grid-template-columns: repeat(4, 1fr);
+    grid-template-columns: repeat(3, 1fr);
   }
 }
 
