@@ -173,7 +173,9 @@
       <!-- Summary by designation -->
       <div class="defmaks-section-header">Résumé par désignation</div>
       <div class="summary-grid">
-        <div *ngFor="let summary of getSummaryByDesignation()" class="summary-item defmaks-interactive">
+        <div *ngFor="let summary of getSummaryByDesignation()" 
+             class="summary-item defmaks-interactive"
+             (click)="openTransactionQuickview(summary.designation)">
           <div class="summary-content">
             <h3 class="summary-title">{{ summary.designation }}</h3>
             <div class="summary-stats">
@@ -184,7 +186,10 @@
               </div>
             </div>
           </div>
-          <ion-icon name="chevron-forward-outline" color="medium"></ion-icon>
+          <div class="quickview-indicator">
+            <ion-icon name="eye-outline" color="primary"></ion-icon>
+            <span class="quickview-text">Voir détails</span>
+          </div>
         </div>
       </div>
 
@@ -198,14 +203,27 @@
           </ion-item>
           <div slot="content" class="accordion-content">
             <div class="transaction-list">
-              <div *ngFor="let t of transactions; let i = index" class="defmaks-transaction-item">
+              <div *ngFor="let t of transactions; let i = index" 
+                   class="defmaks-transaction-item"
+                   [class.suspicious-transaction]="isSuspiciousAmount(t.montant)">
                 <div class="transaction-header">
                   <div class="transaction-info">
                     <h3 class="transaction-date">{{ t.date }}</h3>
-                    <p class="transaction-designation">{{ t.designation }}</p>
+                    <p class="transaction-designation" 
+                       [class.full-designation]="isSuspiciousAmount(t.montant)">
+                      {{ t.designation }}
+                      <small *ngIf="isSuspiciousAmount(t.montant)" class="suspicious-note">
+                        <ion-icon name="warning-outline" size="small"></ion-icon>
+                        Montant suspect - Libellé complet affiché
+                      </small>
+                    </p>
                   </div>
                   <div class="transaction-badge">
                     <span class="defmaks-status-success">{{ i + 1 }}</span>
+                    <ion-icon *ngIf="isSuspiciousAmount(t.montant)" 
+                             name="warning" 
+                             color="warning" 
+                             class="suspicious-icon"></ion-icon>
                   </div>
                 </div>
                 
@@ -224,7 +242,29 @@
                       {{ t.montant | number:'1.2-2' }} CDF
                     </strong>
                   </div>
-                  <div *ngIf="usdAmounts[i]" class="amount-row original-row">
+                  
+                  <!-- Enhanced original amount display for suspicious transactions -->
+                  <div *ngIf="usdAmounts[i] && isSuspiciousAmount(t.montant)" class="original-amounts-section">
+                    <div class="original-header">
+                      <ion-icon name="swap-horizontal-outline" size="small"></ion-icon>
+                      <span class="original-title">Montants originaux (USD)</span>
+                    </div>
+                    <div *ngIf="usdAmounts[i].debit > 0" class="amount-row original-row">
+                      <span class="amount-label">Débit USD:</span>
+                      <span class="usd-original">{{ usdAmounts[i].debit | number:'1.2-2' }} USD</span>
+                    </div>
+                    <div *ngIf="usdAmounts[i].credit > 0" class="amount-row original-row">
+                      <span class="amount-label">Crédit USD:</span>
+                      <span class="usd-original">{{ usdAmounts[i].credit | number:'1.2-2' }} USD</span>
+                    </div>
+                    <div class="amount-row original-row">
+                      <span class="amount-label">Net USD:</span>
+                      <strong class="usd-original">{{ usdAmounts[i].montant | number:'1.2-2' }} USD</strong>
+                    </div>
+                  </div>
+                  
+                  <!-- Regular original amount for non-suspicious transactions -->
+                  <div *ngIf="usdAmounts[i] && !isSuspiciousAmount(t.montant)" class="amount-row original-row">
                     <span class="amount-label">Original:</span>
                     <small class="usd-original">{{ usdAmounts[i].montant | number:'1.2-2' }} USD</small>
                   </div>

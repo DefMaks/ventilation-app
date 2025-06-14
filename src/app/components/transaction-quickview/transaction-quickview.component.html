@@ -1,0 +1,148 @@
+<ion-header>
+  <ion-toolbar class="defmaks-modal-header">
+    <ion-title class="defmaks-title">
+      <ion-icon name="list-outline" class="title-icon"></ion-icon>
+      {{ designation }}
+    </ion-title>
+    <ion-buttons slot="end">
+      <ion-button (click)="dismiss()" class="close-button">
+        <ion-icon name="close" size="large"></ion-icon>
+      </ion-button>
+    </ion-buttons>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content class="defmaks-modal-content">
+  <!-- Summary Card -->
+  <div class="defmaks-card summary-card">
+    <ion-card-header>
+      <ion-card-title class="defmaks-title">
+        <ion-icon name="analytics-outline" color="primary"></ion-icon>
+        Résumé
+      </ion-card-title>
+    </ion-card-header>
+    <ion-card-content>
+      <div class="summary-stats">
+        <div class="stat-item">
+          <span class="stat-label">Nombre de transactions</span>
+          <strong class="stat-value">{{ transactions.length }}</strong>
+        </div>
+        <div class="stat-item">
+          <span class="stat-label">Total CDF</span>
+          <strong class="stat-value defmaks-amount-positive">{{ formatCurrency(totalAmount) }}</strong>
+        </div>
+        <div class="stat-item" *ngIf="totalUsdAmount > 0">
+          <span class="stat-label">Total USD (original)</span>
+          <strong class="stat-value usd-amount">{{ formatCurrency(totalUsdAmount, 'USD') }}</strong>
+        </div>
+        <div class="stat-item" *ngIf="exchangeRate">
+          <span class="stat-label">Taux appliqué</span>
+          <strong class="stat-value">1 USD = {{ exchangeRate | number:'1.0-0' }} CDF</strong>
+        </div>
+      </div>
+    </ion-card-content>
+  </div>
+
+  <!-- Transactions List -->
+  <div class="defmaks-card transactions-card">
+    <ion-card-header>
+      <ion-card-title class="defmaks-title">
+        <ion-icon name="receipt-outline" color="secondary"></ion-icon>
+        Détail des transactions
+      </ion-card-title>
+    </ion-card-header>
+    <ion-card-content>
+      <div class="transaction-list">
+        <div *ngFor="let transaction of transactions; let i = index" 
+             class="transaction-item"
+             [class.suspicious-transaction]="isSuspiciousAmount(transaction.montant)">
+          
+          <!-- Transaction Header -->
+          <div class="transaction-header">
+            <div class="transaction-info">
+              <h3 class="transaction-date">{{ transaction.date }}</h3>
+              <div class="transaction-badge">
+                <span class="defmaks-status-success">{{ i + 1 }}</span>
+              </div>
+            </div>
+            
+            <!-- Suspicious indicator -->
+            <div *ngIf="isSuspiciousAmount(transaction.montant)" class="suspicious-indicator">
+              <ion-icon name="warning-outline" color="warning"></ion-icon>
+              <span class="suspicious-label">Montant suspect</span>
+            </div>
+          </div>
+
+          <!-- Full designation for suspicious transactions -->
+          <div class="transaction-designation" 
+               [class.full-designation]="isSuspiciousAmount(transaction.montant)">
+            <p class="designation-text">{{ transaction.designation }}</p>
+            <small *ngIf="isSuspiciousAmount(transaction.montant)" class="full-label-note">
+              Libellé complet affiché pour vérification
+            </small>
+          </div>
+          
+          <!-- Transaction Amounts -->
+          <div class="transaction-amounts">
+            <div *ngIf="transaction.debit > 0" class="amount-row debit-row">
+              <span class="amount-label">Débit CDF:</span>
+              <span class="amount-value defmaks-amount-negative">{{ formatCurrency(transaction.debit) }}</span>
+            </div>
+            <div *ngIf="transaction.credit > 0" class="amount-row credit-row">
+              <span class="amount-label">Crédit CDF:</span>
+              <span class="amount-value defmaks-amount-positive">{{ formatCurrency(transaction.credit) }}</span>
+            </div>
+            <div class="amount-row net-row">
+              <span class="amount-label">Net CDF:</span>
+              <strong [class]="transaction.montant >= 0 ? 'defmaks-amount-positive' : 'defmaks-amount-negative'">
+                {{ formatCurrency(transaction.montant) }}
+              </strong>
+            </div>
+            
+            <!-- Original USD amounts for suspicious transactions -->
+            <div *ngIf="getOriginalUsdAmount(i) && isSuspiciousAmount(transaction.montant)" 
+                 class="original-amounts-section">
+              <div class="original-header">
+                <ion-icon name="swap-horizontal-outline" size="small"></ion-icon>
+                <span class="original-title">Montants originaux (USD)</span>
+              </div>
+              <div *ngIf="getOriginalUsdAmount(i)!.debit > 0" class="amount-row original-row">
+                <span class="amount-label">Débit USD:</span>
+                <span class="usd-original">{{ formatCurrency(getOriginalUsdAmount(i)!.debit, 'USD') }}</span>
+              </div>
+              <div *ngIf="getOriginalUsdAmount(i)!.credit > 0" class="amount-row original-row">
+                <span class="amount-label">Crédit USD:</span>
+                <span class="usd-original">{{ formatCurrency(getOriginalUsdAmount(i)!.credit, 'USD') }}</span>
+              </div>
+              <div class="amount-row original-row">
+                <span class="amount-label">Net USD:</span>
+                <strong class="usd-original">{{ formatCurrency(getOriginalUsdAmount(i)!.montant, 'USD') }}</strong>
+              </div>
+            </div>
+            
+            <!-- Regular USD amounts for non-suspicious transactions -->
+            <div *ngIf="getOriginalUsdAmount(i) && !isSuspiciousAmount(transaction.montant)" 
+                 class="amount-row original-row">
+              <span class="amount-label">Original USD:</span>
+              <small class="usd-original">{{ formatCurrency(getOriginalUsdAmount(i)!.montant, 'USD') }}</small>
+            </div>
+          </div>
+        </div>
+      </div>
+    </ion-card-content>
+  </div>
+</ion-content>
+
+<ion-footer class="defmaks-modal-footer">
+  <ion-toolbar>
+    <ion-buttons slot="end">
+      <ion-button 
+        fill="clear" 
+        (click)="dismiss()"
+        class="defmaks-button close-footer-button">
+        <ion-icon name="close-outline" slot="start"></ion-icon>
+        Fermer
+      </ion-button>
+    </ion-buttons>
+  </ion-toolbar>
+</ion-footer>

@@ -6,6 +6,7 @@ import { getDocument, GlobalWorkerOptions } from 'pdfjs-dist';
 import { ExcelTemplateService, TransactionData } from '../services/excel-template.service';
 import { CurrencyService } from '../services/currency.service';
 import { CurrencyModalComponent } from '../components/currency-modal/currency-modal.component';
+import { TransactionQuickviewComponent } from '../components/transaction-quickview/transaction-quickview.component';
 
 // Configuration du worker
 GlobalWorkerOptions.workerSrc =
@@ -288,5 +289,40 @@ export class HomePage {
 
       console.log(`Transactions reconverties au nouveau taux ${data.rate}:`, this.transactions);
     }
+  }
+
+  /**
+   * Check if amount is suspicious (over 1M CDF)
+   */
+  isSuspiciousAmount(amount: number): boolean {
+    return Math.abs(amount) > 1000000; // Amounts over 1M CDF are suspicious
+  }
+
+  /**
+   * Open transaction quickview modal
+   */
+  async openTransactionQuickview(designation: string) {
+    // Filter transactions by designation
+    const filteredTransactions = this.transactions.filter(t => t.designation === designation);
+    const filteredUsdAmounts = this.usdAmounts.filter(t => t.designation === designation);
+    
+    // Calculate totals
+    const totalAmount = filteredTransactions.reduce((sum, t) => sum + Math.abs(t.montant), 0);
+    const totalUsdAmount = filteredUsdAmounts.reduce((sum, t) => sum + Math.abs(t.montant), 0);
+
+    const modal = await this.modalController.create({
+      component: TransactionQuickviewComponent,
+      componentProps: {
+        transactions: filteredTransactions,
+        usdAmounts: filteredUsdAmounts,
+        exchangeRate: this.currentExchangeRate,
+        designation: designation,
+        totalAmount: totalAmount,
+        totalUsdAmount: totalUsdAmount
+      },
+      cssClass: 'transaction-quickview-modal'
+    });
+
+    await modal.present();
   }
 }

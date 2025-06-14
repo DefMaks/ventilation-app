@@ -4,6 +4,7 @@ import { IonicModule } from '@ionic/angular';
 import { FormsModule } from '@angular/forms';
 import { HomePage } from './home.page';
 import { CurrencyModalComponent } from '../components/currency-modal/currency-modal.component';
+import { TransactionQuickviewComponent } from '../components/transaction-quickview/transaction-quickview.component';
 
 import { HomePageRoutingModule } from './home-routing.module';
 
@@ -15,7 +16,7 @@ import { HomePageRoutingModule } from './home-routing.module';
     IonicModule,
     HomePageRoutingModule
   ],
-  declarations: [HomePage, CurrencyModalComponent],
+  declarations: [HomePage, CurrencyModalComponent, TransactionQuickviewComponent],
   schemas: [CUSTOM_ELEMENTS_SCHEMA]
 })
 export class HomePageModule {}
