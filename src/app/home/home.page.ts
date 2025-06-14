@@ -50,12 +50,12 @@ export class HomePage {
       const pdf = await getDocument({ data: arrayBuffer }).promise;
       const result: TransactionData[] = [];
 
-      // Pattern optimisé pour vos besoins
+      // Enhanced pattern for better transaction detection
       const targetDesignations = [
         'PYT FPT',
         'TRSF',
         'PMT TOURISME',
-        'FPT INVESTISSEMENT',
+        'FPT INVESTISSEMENT', 
         'ONT FICHE STATISTIQUES',
         'APPUI ADM DU TOURISME',
         'ICCN',
@@ -63,38 +63,90 @@ export class HomePage {
         'COMITE DE SUIVI ET VALIDATION',
         'ONT CONTROLE ET INSPECTION DES UNITES TOURISTIQUES',
       ];
-      const designationPattern = targetDesignations.join('|');
 
       for (let i = 1; i <= pdf.numPages; i++) {
         const page = await pdf.getPage(i);
         const content = await page.getTextContent();
         const text = content.items.map((item: any) => item.str).join(' ');
 
-        // Enhanced regex to capture amounts with commas and decimals
-        const transactionRegex = new RegExp(
-          `(\\d{2}-\\d{2}-\\d{4}).*?(${designationPattern}).*?` +
-            `(?:([\\d,]+\\.\\d{2})\\s*(?:\\s([\\d,]+\\.\\d{2}))?)`, // Enhanced to capture amounts like "34,736.28"
-          'gi'
-        );
+        console.log(`Page ${i} text sample:`, text.substring(0, 500));
 
-        let match;
-        while ((match = transactionRegex.exec(text)) !== null) {
-          // Parse amounts with proper comma and decimal handling
-          const debit = match[3]
-            ? this.parseAmount(match[3])
-            : 0;
-          const credit = match[4]
-            ? this.parseAmount(match[4])
-            : 0;
-          const montant = debit !== 0 ? -debit : credit; // Montant négatif si débit
-
-          result.push({
-            date: match[1],
-            designation: match[2],
-            debit: debit,
-            credit: credit,
-            montant: montant, // Keep original USD values
-          });
+        // Enhanced regex pattern to better capture the PDF structure
+        // Looking for: Date + Designation + Amount(s)
+        const lines = text.split(/\n|\s{3,}/); // Split by newlines or multiple spaces
+        
+        for (let j = 0; j < lines.length; j++) {
+          const line = lines[j].trim();
+          
+          // Look for date pattern at start of line
+          const dateMatch = line.match(/^(\d{2}-\d{2}-\d{4})/);
+          if (!dateMatch) continue;
+          
+          const date = dateMatch[1];
+          
+          // Find designation in current or next lines
+          let designation = '';
+          let amountLine = '';
+          
+          // Check if designation is in the same line
+          const restOfLine = line.substring(dateMatch[0].length).trim();
+          
+          // Look for target designations
+          for (const targetDesig of targetDesignations) {
+            if (restOfLine.includes(targetDesig) || (j + 1 < lines.length && lines[j + 1].includes(targetDesig))) {
+              designation = targetDesig;
+              
+              // Find the line with amounts
+              if (restOfLine.includes(targetDesig)) {
+                amountLine = restOfLine.substring(restOfLine.indexOf(targetDesig) + targetDesig.length);
+              } else {
+                amountLine = lines[j + 1].substring(lines[j + 1].indexOf(targetDesig) + targetDesig.length);
+              }
+              break;
+            }
+          }
+          
+          if (!designation) continue;
+          
+          // Enhanced amount parsing for the PDF format
+          const amounts = this.extractAmountsFromLine(amountLine);
+          
+          if (amounts.length > 0) {
+            // Determine if it's debit or credit based on position and context
+            let debit = 0;
+            let credit = 0;
+            
+            if (amounts.length === 1) {
+              // Single amount - need to determine if it's debit or credit
+              // In bank statements, typically credits are positive, debits are negative
+              // But we need to check the context or position
+              const amount = amounts[0];
+              
+              // Check if this appears to be in a credit column (usually rightmost)
+              // or if there are indicators like "CR" or "DR"
+              if (amountLine.includes('CR') || this.isLikelyCredit(amountLine, amount)) {
+                credit = amount;
+              } else {
+                debit = amount;
+              }
+            } else if (amounts.length >= 2) {
+              // Multiple amounts - typically debit, credit format
+              debit = amounts[0];
+              credit = amounts[1];
+            }
+            
+            const montant = credit > 0 ? credit : -debit;
+            
+            result.push({
+              date: date,
+              designation: designation,
+              debit: debit,
+              credit: credit,
+              montant: montant,
+            });
+            
+            console.log(`Found transaction: ${date} - ${designation} - Debit: ${debit}, Credit: ${credit}`);
+          }
         }
       }
 
@@ -117,6 +169,29 @@ export class HomePage {
     } finally {
       this.isProcessing = false;
     }
+  }
+
+  /**
+   * Extract amounts from a line of text, handling formats like "34,736.28"
+   */
+  private extractAmountsFromLine(line: string): number[] {
+    const amounts: number[] = [];
+    
+    // Enhanced regex to capture amounts with commas and decimals
+    // Matches patterns like: 34,736.28, 1,234.56, 123.45, 1234
+    const amountRegex = /(?:^|\s)([0-9]{1,3}(?:,[0-9]{3})*(?:\.[0-9]{2})?|\d+\.\d{2}|\d+)(?:\s|$)/g;
+    
+    let match;
+    while ((match = amountRegex.exec(line)) !== null) {
+      const amountStr = match[1];
+      const amount = this.parseAmount(amountStr);
+      
+      if (amount > 0) {
+        amounts.push(amount);
+      }
+    }
+    
+    return amounts;
   }
 
   /**
@@ -143,6 +218,29 @@ export class HomePage {
       // No decimal point, just remove commas
       return parseFloat(cleanAmount.replace(/,/g, ''));
     }
+  }
+
+  /**
+   * Determine if an amount is likely a credit based on context
+   */
+  private isLikelyCredit(line: string, amount: number): boolean {
+    // Look for credit indicators
+    if (line.includes('CR') || line.includes('CREDIT') || line.includes('+')) {
+      return true;
+    }
+    
+    // Look for debit indicators
+    if (line.includes('DR') || line.includes('DEBIT') || line.includes('-')) {
+      return false;
+    }
+    
+    // Check position - if amount appears at the end of line, it's often credit
+    const amountStr = amount.toString();
+    const amountIndex = line.lastIndexOf(amountStr);
+    const remainingText = line.substring(amountIndex + amountStr.length).trim();
+    
+    // If there's little text after the amount, it's likely in the credit column
+    return remainingText.length < 10;
   }
 
   /**
@@ -311,7 +409,7 @@ export class HomePage {
     await modal.present();
     const { data } = await modal.onDidDismiss();
 
-    if (data && data.rate) {
+    if (data && data.rate && this.usdAmounts.length > 0) {
       this.currentExchangeRate = data.rate;
       this.currencyService.saveRate(data.rate, data.dontAskAgain);
       
@@ -321,7 +419,7 @@ export class HomePage {
   }
 
   /**
-   * Check if amount is suspicious (over 1M USD)
+   * Check if amount is suspicious (over 100K USD)
    */
   isSuspiciousAmount(amount: number): boolean {
     return Math.abs(amount) > 100000; // Amounts over 100K USD are suspicious
