@@ -12,6 +12,21 @@ import { TransactionQuickviewComponent } from '../components/transaction-quickvi
 GlobalWorkerOptions.workerSrc =
   'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
 
+interface TableColumn {
+  label: string;
+  minX: number;
+  maxX: number;
+  index: number;
+}
+
+interface ParsedRow {
+  transactionDate: string;
+  valueDate: string;
+  narrative: string;
+  debit: number;
+  credit: number;
+}
+
 @Component({
   selector: 'app-home',
   templateUrl: 'home.page.html',
@@ -24,6 +39,15 @@ export class HomePage {
   validationErrors: string[] = [];
   currentExchangeRate: number = 2800;
   usdAmounts: TransactionData[] = []; // Store original USD amounts
+
+  // Define table columns based on typical bank statement layout
+  private tableColumns: TableColumn[] = [
+    { label: 'Transaction Date', minX: 0, maxX: 100, index: 0 },
+    { label: 'Value Date', minX: 100, maxX: 200, index: 1 },
+    { label: 'Narrative', minX: 200, maxX: 500, index: 2 },
+    { label: 'Debit', minX: 500, maxX: 600, index: 3 },
+    { label: 'Credit', minX: 600, maxX: 1000, index: 4 }
+  ];
 
   constructor(
     private excelTemplateService: ExcelTemplateService,
@@ -50,7 +74,7 @@ export class HomePage {
       const pdf = await getDocument({ data: arrayBuffer }).promise;
       const result: TransactionData[] = [];
 
-      // Pattern optimisé pour vos besoins
+      // Target designations we're looking for
       const targetDesignations = [
         'PYT FPT',
         'TRSF',
@@ -70,140 +94,261 @@ export class HomePage {
         
         // Get text with position information
         const textItems = content.items.map((item: any) => ({
-          str: item.str,
+          str: item.str.trim(),
           x: item.transform[4],
-          y: item.transform[5]
-        }));
+          y: item.transform[5],
+          width: item.width || 0
+        })).filter(item => item.str.length > 0);
 
         console.log(`Page ${i} - Found ${textItems.length} text items`);
 
+        // Auto-detect column boundaries based on text positions
+        const detectedColumns = this.detectColumnBoundaries(textItems);
+        console.log('Detected columns:', detectedColumns);
+
         // Group text items by Y position (rows) with tolerance
-        const rows = new Map<number, any[]>();
-        const yTolerance = 5;
+        const rows = this.groupTextIntoRows(textItems);
+        console.log(`Page ${i} - Found ${rows.length} rows`);
 
-        textItems.forEach(item => {
-          let foundRow = false;
-          for (const [y, items] of rows.entries()) {
-            if (Math.abs(y - item.y) <= yTolerance) {
-              items.push(item);
-              foundRow = true;
-              break;
-            }
-          }
-          if (!foundRow) {
-            rows.set(item.y, [item]);
-          }
-        });
-
-        // Sort rows by Y position (top to bottom)
-        const sortedRows = Array.from(rows.entries())
-          .sort((a, b) => b[0] - a[0]) // Descending Y (top to bottom)
-          .map(([y, items]) => items.sort((a, b) => a.x - b.x)); // Sort items in row by X position
-
-        console.log(`Page ${i} - Found ${sortedRows.length} rows`);
-
-        // Process each row
-        for (const rowItems of sortedRows) {
-          const rowText = rowItems.map(item => item.str).join(' ').trim();
+        // Process each row and map to columns
+        for (const rowItems of rows) {
+          const parsedRow = this.parseRowToColumns(rowItems, detectedColumns);
           
-          if (!rowText) continue;
+          if (!parsedRow) continue;
 
-          console.log(`Processing row: "${rowText}"`);
+          console.log('Parsed row:', parsedRow);
 
-          // Check if this row contains a date pattern (transaction row)
-          const dateMatch = rowText.match(/(\d{2}-\d{2}-\d{4})/);
-          if (!dateMatch) continue;
-
-          const transactionDate = dateMatch[1];
-          console.log(`Found date: ${transactionDate}`);
-
-          // Check if narrative contains any target designations
-          const matchedDesignation = targetDesignations.find(designation => 
-            rowText.toUpperCase().includes(designation.toUpperCase())
-          );
-
-          if (!matchedDesignation) {
-            console.log(`No matching designation found in: "${rowText}"`);
+          // Check if this row contains a valid transaction
+          if (!this.isValidTransactionRow(parsedRow, targetDesignations)) {
             continue;
           }
 
-          console.log(`Found matching designation: ${matchedDesignation}`);
+          // Convert to our transaction format
+          const transaction: TransactionData = {
+            date: parsedRow.transactionDate,
+            designation: this.findMatchingDesignation(parsedRow.narrative, targetDesignations),
+            debit: parsedRow.debit,
+            credit: parsedRow.credit,
+            montant: parsedRow.credit > 0 ? parsedRow.credit : -parsedRow.debit
+          };
 
-          // Try to extract amounts from the row
-          // Look for decimal numbers (potential amounts)
-          const amountMatches = rowText.match(/(\d{1,3}(?:,\d{3})*(?:\.\d{2})?)/g);
-          
-          if (!amountMatches || amountMatches.length === 0) {
-            console.log(`No amounts found in row: "${rowText}"`);
-            continue;
-          }
-
-          console.log(`Found potential amounts: ${amountMatches.join(', ')}`);
-
-          // Parse amounts - assume last 1-2 numbers are debit/credit
-          let debit = 0;
-          let credit = 0;
-
-          if (amountMatches.length >= 2) {
-            // If we have 2+ amounts, assume last two are debit and credit
-            const amount1 = this.parseAmount(amountMatches[amountMatches.length - 2]);
-            const amount2 = this.parseAmount(amountMatches[amountMatches.length - 1]);
-            
-            // Determine which is debit vs credit based on context or position
-            // For now, assume first is debit, second is credit
-            debit = amount1;
-            credit = amount2;
-          } else if (amountMatches.length === 1) {
-            // Single amount - need to determine if it's debit or credit
-            const amount = this.parseAmount(amountMatches[0]);
-            
-            // Check position in text or context clues
-            const amountIndex = rowText.indexOf(amountMatches[0]);
-            const beforeAmount = rowText.substring(0, amountIndex).toLowerCase();
-            const afterAmount = rowText.substring(amountIndex + amountMatches[0].length).toLowerCase();
-            
-            // Simple heuristic: if it appears in the latter part, it might be credit
-            if (amountIndex > rowText.length * 0.7) {
-              credit = amount;
-            } else {
-              debit = amount;
-            }
-          }
-
-          // Calculate net amount
-          const montant = credit > 0 ? credit : -debit;
-
-          result.push({
-            date: transactionDate,
-            designation: matchedDesignation,
-            debit: debit,
-            credit: credit,
-            montant: montant,
-          });
-
-          console.log(`Added transaction: ${transactionDate} - ${matchedDesignation} - Debit: ${debit} - Credit: ${credit} - Net: ${montant}`);
+          result.push(transaction);
+          console.log(`Added transaction:`, transaction);
         }
       }
 
-      console.log('Transactions extraites (USD):', result);
+      console.log('Total transactions extracted:', result.length);
       
-      // Store original USD amounts and display them directly (no conversion)
+      // Store original USD amounts and display them directly
       this.usdAmounts = [...result];
-      this.transactions = [...result]; // Display USD amounts directly
+      this.transactions = [...result];
       
       // Validate extracted data
       const validation = this.excelTemplateService.validateData(this.transactions);
       if (!validation.isValid) {
         this.validationErrors = validation.errors;
-        console.warn('Erreurs de validation:', validation.errors);
+        console.warn('Validation errors:', validation.errors);
       }
 
     } catch (error) {
-      console.error('Erreur de traitement PDF:', error);
-      this.validationErrors = ['Erreur lors du traitement du PDF: ' + (error as Error).message];
+      console.error('PDF processing error:', error);
+      this.validationErrors = ['Error processing PDF: ' + (error as Error).message];
     } finally {
       this.isProcessing = false;
     }
+  }
+
+  /**
+   * Auto-detect column boundaries based on text positions
+   */
+  private detectColumnBoundaries(textItems: any[]): TableColumn[] {
+    // Find potential column separators by analyzing X positions
+    const xPositions = textItems.map(item => item.x).sort((a, b) => a - b);
+    const uniqueX = [...new Set(xPositions)];
+    
+    // Group similar X positions (within tolerance)
+    const tolerance = 10;
+    const columnStarts: number[] = [];
+    
+    for (let i = 0; i < uniqueX.length; i++) {
+      const x = uniqueX[i];
+      const isNewColumn = !columnStarts.some(start => Math.abs(start - x) <= tolerance);
+      if (isNewColumn) {
+        columnStarts.push(x);
+      }
+    }
+    
+    columnStarts.sort((a, b) => a - b);
+    console.log('Detected column starts:', columnStarts);
+
+    // Create column definitions
+    const columns: TableColumn[] = [];
+    const labels = ['Transaction Date', 'Value Date', 'Narrative', 'Debit', 'Credit'];
+    
+    for (let i = 0; i < Math.min(columnStarts.length, labels.length); i++) {
+      const minX = columnStarts[i];
+      const maxX = i < columnStarts.length - 1 ? columnStarts[i + 1] : 1000;
+      
+      columns.push({
+        label: labels[i],
+        minX: minX,
+        maxX: maxX,
+        index: i
+      });
+    }
+
+    return columns;
+  }
+
+  /**
+   * Group text items into rows based on Y position
+   */
+  private groupTextIntoRows(textItems: any[]): any[][] {
+    const rows = new Map<number, any[]>();
+    const yTolerance = 5;
+
+    textItems.forEach(item => {
+      let foundRow = false;
+      for (const [y, items] of rows.entries()) {
+        if (Math.abs(y - item.y) <= yTolerance) {
+          items.push(item);
+          foundRow = true;
+          break;
+        }
+      }
+      if (!foundRow) {
+        rows.set(item.y, [item]);
+      }
+    });
+
+    // Sort rows by Y position (top to bottom) and items within rows by X position
+    return Array.from(rows.entries())
+      .sort((a, b) => b[0] - a[0]) // Descending Y (top to bottom)
+      .map(([y, items]) => items.sort((a, b) => a.x - b.x));
+  }
+
+  /**
+   * Parse a row of text items into column-based data
+   */
+  private parseRowToColumns(rowItems: any[], columns: TableColumn[]): ParsedRow | null {
+    const columnData: string[] = new Array(columns.length).fill('');
+    
+    // Assign each text item to its appropriate column
+    rowItems.forEach(item => {
+      for (const column of columns) {
+        if (item.x >= column.minX && item.x < column.maxX) {
+          if (columnData[column.index]) {
+            columnData[column.index] += ' ' + item.str;
+          } else {
+            columnData[column.index] = item.str;
+          }
+          break;
+        }
+      }
+    });
+
+    // Clean up column data
+    const cleanedData = columnData.map(data => data.trim());
+    
+    console.log('Column data:', cleanedData);
+
+    // Parse the data according to expected column structure
+    const transactionDate = this.extractDate(cleanedData[0]) || this.extractDate(cleanedData[1]);
+    const valueDate = this.extractDate(cleanedData[1]) || transactionDate;
+    const narrative = cleanedData[2] || '';
+    const debit = this.parseAmount(cleanedData[3]) || 0;
+    const credit = this.parseAmount(cleanedData[4]) || 0;
+
+    // If we have amounts in wrong columns, try to detect them
+    if (debit === 0 && credit === 0) {
+      // Look for amounts in any column
+      for (let i = 0; i < cleanedData.length; i++) {
+        const amount = this.parseAmount(cleanedData[i]);
+        if (amount > 0) {
+          // Heuristic: if it's in the last columns, it's likely credit
+          if (i >= 3) {
+            return {
+              transactionDate: transactionDate || '',
+              valueDate: valueDate || '',
+              narrative: narrative,
+              debit: 0,
+              credit: amount
+            };
+          } else if (i >= 2) {
+            return {
+              transactionDate: transactionDate || '',
+              valueDate: valueDate || '',
+              narrative: narrative,
+              debit: amount,
+              credit: 0
+            };
+          }
+        }
+      }
+    }
+
+    if (!transactionDate && !narrative) {
+      return null; // Not a valid data row
+    }
+
+    return {
+      transactionDate: transactionDate || '',
+      valueDate: valueDate || '',
+      narrative: narrative,
+      debit: debit,
+      credit: credit
+    };
+  }
+
+  /**
+   * Extract date from text using various patterns
+   */
+  private extractDate(text: string): string | null {
+    if (!text) return null;
+    
+    const datePatterns = [
+      /(\d{2}-\d{2}-\d{4})/,
+      /(\d{2}\/\d{2}\/\d{4})/,
+      /(\d{2}\.\d{2}\.\d{4})/
+    ];
+
+    for (const pattern of datePatterns) {
+      const match = text.match(pattern);
+      if (match) {
+        return match[1];
+      }
+    }
+    
+    return null;
+  }
+
+  /**
+   * Check if a parsed row represents a valid transaction
+   */
+  private isValidTransactionRow(row: ParsedRow, targetDesignations: string[]): boolean {
+    // Must have a date
+    if (!row.transactionDate) return false;
+    
+    // Must have either debit or credit amount
+    if (row.debit === 0 && row.credit === 0) return false;
+    
+    // Must contain one of our target designations
+    return this.findMatchingDesignation(row.narrative, targetDesignations) !== '';
+  }
+
+  /**
+   * Find matching designation from narrative text
+   */
+  private findMatchingDesignation(narrative: string, targetDesignations: string[]): string {
+    const upperNarrative = narrative.toUpperCase();
+    
+    for (const designation of targetDesignations) {
+      if (upperNarrative.includes(designation.toUpperCase())) {
+        return designation;
+      }
+    }
+    
+    return '';
   }
 
   /**
@@ -215,6 +360,8 @@ export class HomePage {
     // Remove any non-digit, non-comma, non-decimal characters
     const cleanAmount = amountStr.replace(/[^\d,.-]/g, '');
     
+    if (!cleanAmount) return 0;
+    
     // Handle different formats:
     // "34,736.28" -> 34736.28
     // "1,234,567.89" -> 1234567.89
@@ -225,10 +372,12 @@ export class HomePage {
       const parts = cleanAmount.split('.');
       const integerPart = parts[0].replace(/,/g, ''); // Remove all commas from integer part
       const decimalPart = parts[1];
-      return parseFloat(`${integerPart}.${decimalPart}`);
+      const result = parseFloat(`${integerPart}.${decimalPart}`);
+      return isNaN(result) ? 0 : result;
     } else {
       // No decimal point, just remove commas
-      return parseFloat(cleanAmount.replace(/,/g, ''));
+      const result = parseFloat(cleanAmount.replace(/,/g, ''));
+      return isNaN(result) ? 0 : result;
     }
   }
 
@@ -271,7 +420,7 @@ export class HomePage {
 
   async exportToExcel() {
     if (this.transactions.length === 0) {
-      console.warn('Aucune transaction à exporter');
+      console.warn('No transactions to export');
       return;
     }
 
@@ -281,15 +430,15 @@ export class HomePage {
       
       // Create Excel template with converted CDF data
       this.excelTemplateService.createExcelTemplate(convertedTransactions);
-      console.log('Template Excel créé avec succès');
+      console.log('Excel template created successfully');
     } catch (error) {
-      console.error('Erreur lors de la création du template Excel:', error);
+      console.error('Error creating Excel template:', error);
     }
   }
 
   async exportToExcelLegacy() {
     if (this.transactions.length === 0) {
-      console.warn('Aucune transaction à exporter');
+      console.warn('No transactions to export');
       return;
     }
 
@@ -321,14 +470,14 @@ export class HomePage {
       );
       XLSX.writeFile(wb, 'ventilation_2024_legacy.xlsx');
     } catch (error) {
-      console.error('Erreur lors de l\'export legacy:', error);
+      console.error('Error in legacy export:', error);
     }
   }
 
   async onTemplateFileSelected(event: any) {
     const file = event.target.files[0];
     if (!file || this.transactions.length === 0) {
-      console.warn('Veuillez d\'abord traiter un PDF et sélectionner un template Excel');
+      console.warn('Please process a PDF first and select an Excel template');
       return;
     }
 
@@ -339,9 +488,9 @@ export class HomePage {
       const convertedTransactions = await this.handleCurrencyConversionForExport();
       
       await this.excelTemplateService.updateExcelTemplate(file, convertedTransactions);
-      console.log('Template Excel mis à jour avec succès');
+      console.log('Excel template updated successfully');
     } catch (error) {
-      console.error('Erreur lors de la mise à jour du template:', error);
+      console.error('Error updating Excel template:', error);
     } finally {
       this.isProcessing = false;
     }
@@ -381,7 +530,7 @@ export class HomePage {
   resetExchangeRate() {
     this.currencyService.clearStoredRate();
     this.currentExchangeRate = 2800;
-    console.log('Taux de change réinitialisé');
+    console.log('Exchange rate reset');
   }
 
   /**
@@ -402,8 +551,8 @@ export class HomePage {
       this.currentExchangeRate = data.rate;
       this.currencyService.saveRate(data.rate, data.dontAskAgain);
       
-      console.log(`Nouveau taux de change configuré: ${data.rate} CDF pour 1 USD`);
-      console.log('Ce taux sera utilisé lors du prochain export');
+      console.log(`New exchange rate configured: ${data.rate} CDF for 1 USD`);
+      console.log('This rate will be used for the next export');
     }
   }
 
