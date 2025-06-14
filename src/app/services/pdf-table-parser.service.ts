@@ -42,7 +42,7 @@ export class PdfTableParserService {
     const rawText = textItems.map((item: any) => item.str).join(' ');
     console.log('=== PDF ANALYSIS START ===');
     console.log('Total text items found:', textItems.length);
-    console.log('Raw PDF text:', rawText);
+    console.log('Raw PDF text (first 500 chars):', rawText.substring(0, 500));
 
     // Show first 10 text items with positions
     console.log('First 10 text items with positions:');
@@ -150,7 +150,7 @@ export class PdfTableParserService {
     const xPositions = textItems.map(item => item.transform[4]);
     const uniqueX = [...new Set(xPositions)].sort((a, b) => a - b);
     
-    console.log('All unique X positions:', uniqueX.slice(0, 20)); // Show first 20
+    console.log('All unique X positions (first 20):', uniqueX.slice(0, 20));
     
     // Try multiple tolerance levels for column grouping
     const tolerances = [10, 15, 20, 25, 30];
@@ -287,10 +287,50 @@ export class PdfTableParserService {
       console.log('Strategy 3 (Flexible Search) found:', transactions.length, 'transactions');
     }
     
+    // Validate and clean transactions
+    transactions = this.validateAndCleanTransactions(transactions);
+    
     console.log('=== TRANSACTION EXTRACTION END ===');
-    console.log('Final transactions found:', transactions);
+    console.log('Final valid transactions found:', transactions);
     
     return transactions;
+  }
+
+  /**
+   * Validate and clean transactions to remove unrealistic amounts
+   */
+  private validateAndCleanTransactions(transactions: any[]): any[] {
+    const validTransactions = transactions.filter(transaction => {
+      // Check for realistic amounts (between $0.01 and $10,000,000)
+      const amount = Math.abs(transaction.montant || transaction.debit || transaction.credit || 0);
+      
+      if (amount < 0.01) {
+        console.warn('Rejected transaction with zero/negative amount:', transaction);
+        return false;
+      }
+      
+      if (amount > 10000000) { // 10 million USD limit
+        console.warn('Rejected transaction with unrealistic amount:', amount, transaction);
+        return false;
+      }
+      
+      // Check for valid date format
+      if (!transaction.date || !/\d{1,2}[-\/]\d{1,2}[-\/]\d{4}/.test(transaction.date)) {
+        console.warn('Rejected transaction with invalid date:', transaction);
+        return false;
+      }
+      
+      // Check for valid designation
+      if (!transaction.designation || transaction.designation.trim().length < 3) {
+        console.warn('Rejected transaction with invalid designation:', transaction);
+        return false;
+      }
+      
+      return true;
+    });
+    
+    console.log(`Validation: ${transactions.length} raw → ${validTransactions.length} valid transactions`);
+    return validTransactions;
   }
 
   /**
@@ -299,7 +339,6 @@ export class PdfTableParserService {
   private extractWithStructuredAnalysis(tableStructure: TableStructure): any[] {
     const transactions: any[] = [];
     const datePattern = /\d{1,2}[-\/]\d{1,2}[-\/]\d{4}/;
-    const amountPattern = /[\d,]+\.?\d*/;
     
     tableStructure.rows.forEach((row, index) => {
       console.log(`Analyzing row ${index}:`, row.cells.map(c => `"${c.text}"`));
@@ -321,27 +360,33 @@ export class PdfTableParserService {
       
       // Check if it's a target designation
       if (this.isTargetDesignation(narrativeCell.text)) {
-        // Find amount cells
-        const amountCells = row.cells.filter(cell => 
-          this.isAmountOnly(cell.text) && this.parseAmountEnhanced(cell.text) > 0
-        );
+        // Find amount cells - be more selective
+        const amountCells = row.cells.filter(cell => {
+          const cleanText = cell.text.trim();
+          return this.isValidAmountFormat(cleanText) && this.parseAmountEnhanced(cleanText) > 0;
+        });
         
         if (amountCells.length > 0) {
           const amount = this.parseAmountEnhanced(amountCells[0].text);
           
-          transactions.push({
-            date: dateCell.text,
-            designation: narrativeCell.text,
-            debit: amount,
-            credit: 0,
-            montant: -amount
-          });
-          
-          console.log('✓ Found transaction:', {
-            date: dateCell.text,
-            designation: narrativeCell.text,
-            amount: amount
-          });
+          // Additional validation for reasonable amounts
+          if (amount > 0 && amount <= 10000000) {
+            transactions.push({
+              date: dateCell.text,
+              designation: narrativeCell.text,
+              debit: amount,
+              credit: 0,
+              montant: -amount
+            });
+            
+            console.log('✓ Found transaction:', {
+              date: dateCell.text,
+              designation: narrativeCell.text,
+              amount: amount
+            });
+          } else {
+            console.warn('Rejected unrealistic amount:', amount, 'from text:', amountCells[0].text);
+          }
         }
       }
     });
@@ -366,26 +411,25 @@ export class PdfTableParserService {
           // Look for date in this row
           const dateMatch = rowText.match(/\d{1,2}[-\/]\d{1,2}[-\/]\d{4}/);
           if (dateMatch) {
-            // Look for amounts
-            const amountMatches = rowText.match(/[\d,]+\.?\d*/g);
-            if (amountMatches) {
-              const amounts = amountMatches
-                .map(match => this.parseAmountEnhanced(match))
-                .filter(amount => amount > 0);
+            // Look for amounts - be more selective
+            const amountMatches = this.extractValidAmounts(rowText);
+            
+            if (amountMatches.length > 0) {
+              const amount = amountMatches[0];
               
-              if (amounts.length > 0) {
+              if (amount > 0 && amount <= 10000000) {
                 transactions.push({
                   date: dateMatch[0],
                   designation: designation,
-                  debit: amounts[0],
+                  debit: amount,
                   credit: 0,
-                  montant: -amounts[0]
+                  montant: -amount
                 });
                 
                 console.log('✓ Pattern match found:', {
                   date: dateMatch[0],
                   designation: designation,
-                  amount: amounts[0]
+                  amount: amount
                 });
               }
             }
@@ -404,19 +448,17 @@ export class PdfTableParserService {
     const transactions: any[] = [];
     const allText = tableStructure.rawText;
     
-    console.log('Flexible search on text:', allText.substring(0, 500) + '...');
+    console.log('Flexible search on text (first 500 chars):', allText.substring(0, 500));
     
     const targetDesignations = this.getTargetDesignations();
     const designationPattern = targetDesignations.join('|');
 
-    // More flexible regex
+    // More conservative regex patterns
     const patterns = [
-      // Pattern 1: date designation amount
-      new RegExp(`(\\d{1,2}[-\/]\\d{1,2}[-\/]\\d{4}).*?(${designationPattern}).*?([\\d,]+\\.?\\d*)`, 'gi'),
+      // Pattern 1: date designation amount (with word boundaries)
+      new RegExp(`(\\d{1,2}[-\/]\\d{1,2}[-\/]\\d{4})\\s+.*?(${designationPattern}).*?\\s+([\\d,]{1,10}\\.\\d{2})(?!\\d)`, 'gi'),
       // Pattern 2: designation date amount
-      new RegExp(`(${designationPattern}).*?(\\d{1,2}[-\/]\\d{1,2}[-\/]\\d{4}).*?([\\d,]+\\.?\\d*)`, 'gi'),
-      // Pattern 3: amount designation date
-      new RegExp(`([\\d,]+\\.?\\d*).*?(${designationPattern}).*?(\\d{1,2}[-\/]\\d{1,2}[-\/]\\d{4})`, 'gi')
+      new RegExp(`(${designationPattern}).*?(\\d{1,2}[-\/]\\d{1,2}[-\/]\\d{4}).*?\\s+([\\d,]{1,10}\\.\\d{2})(?!\\d)`, 'gi')
     ];
 
     patterns.forEach((pattern, patternIndex) => {
@@ -427,14 +469,12 @@ export class PdfTableParserService {
         
         if (patternIndex === 0) {
           [, date, designation, amountStr] = match;
-        } else if (patternIndex === 1) {
-          [, designation, date, amountStr] = match;
         } else {
-          [, amountStr, designation, date] = match;
+          [, designation, date, amountStr] = match;
         }
         
         const amount = this.parseAmountEnhanced(amountStr);
-        if (amount > 0) {
+        if (amount > 0 && amount <= 10000000) {
           transactions.push({
             date: date,
             designation: designation,
@@ -448,6 +488,8 @@ export class PdfTableParserService {
             designation: designation,
             amount: amount
           });
+        } else {
+          console.warn(`Rejected amount from pattern ${patternIndex + 1}:`, amount, 'from:', amountStr);
         }
       }
     });
@@ -456,66 +498,71 @@ export class PdfTableParserService {
   }
 
   /**
-   * Check if text is primarily an amount
+   * Extract valid amounts from text with better validation
    */
-  private isAmountOnly(text: string): boolean {
-    const cleanText = text.replace(/[^\d,.-]/g, '');
-    return cleanText.length > 0 && cleanText.length >= text.length * 0.7;
+  private extractValidAmounts(text: string): number[] {
+    // Look for amounts in format: 1,234.56 or 1234.56
+    const amountPattern = /\b(\d{1,3}(?:,\d{3})*\.\d{2}|\d{1,7}\.\d{2})\b/g;
+    const matches = text.match(amountPattern) || [];
+    
+    return matches
+      .map(match => this.parseAmountEnhanced(match))
+      .filter(amount => amount > 0 && amount <= 10000000); // Reasonable limits
   }
 
   /**
-   * Enhanced amount parsing
+   * Check if text is a valid amount format
+   */
+  private isValidAmountFormat(text: string): boolean {
+    // Must be primarily digits, commas, and one decimal point
+    const cleanText = text.trim();
+    
+    // Check for valid amount patterns
+    const validPatterns = [
+      /^\d{1,3}(?:,\d{3})*\.\d{2}$/, // 1,234.56
+      /^\d{1,7}\.\d{2}$/,            // 1234.56
+      /^\d{1,10}$/                   // 1234 (whole numbers)
+    ];
+    
+    return validPatterns.some(pattern => pattern.test(cleanText));
+  }
+
+  /**
+   * Check if text is primarily an amount
+   */
+  private isAmountOnly(text: string): boolean {
+    return this.isValidAmountFormat(text.trim());
+  }
+
+  /**
+   * Enhanced amount parsing with strict validation
    */
   private parseAmountEnhanced(text: string): number {
     if (!text || text.trim() === '') return 0;
     
-    // Remove any non-numeric characters except commas and decimals
-    const cleanText = text.replace(/[^\d,.-]/g, '');
-    
-    if (!cleanText) return 0;
+    const cleanText = text.trim();
     
     try {
-      // Handle different number formats
-      if (cleanText.includes('.') && cleanText.includes(',')) {
-        // Format like 1,234.56
-        const parts = cleanText.split('.');
-        if (parts.length === 2 && parts[1].length <= 2) {
-          const integerPart = parts[0].replace(/,/g, '');
-          return parseFloat(`${integerPart}.${parts[1]}`);
-        }
-      } else if (cleanText.includes('.')) {
-        // Format like 1234.56 or 1.234 (European)
-        const parts = cleanText.split('.');
-        if (parts.length === 2) {
-          if (parts[1].length <= 2) {
-            // Decimal format: 1234.56
-            const integerPart = parts[0].replace(/,/g, '');
-            return parseFloat(`${integerPart}.${parts[1]}`);
-          } else {
-            // Thousands separator: 1.234
-            return parseFloat(cleanText.replace(/\./g, '').replace(/,/g, '.'));
-          }
-        }
-      } else if (cleanText.includes(',')) {
-        // Format like 1,234 (thousands) or 1234,56 (European decimal)
-        const parts = cleanText.split(',');
-        if (parts.length === 2 && parts[1].length <= 2) {
-          // European decimal: 1234,56
-          return parseFloat(`${parts[0]}.${parts[1]}`);
-        } else {
-          // Thousands separator: 1,234
-          return parseFloat(cleanText.replace(/,/g, ''));
-        }
-      } else {
-        // Simple integer
+      // Only handle specific, safe formats
+      if (/^\d{1,3}(?:,\d{3})*\.\d{2}$/.test(cleanText)) {
+        // Format: 1,234.56
+        const withoutCommas = cleanText.replace(/,/g, '');
+        return parseFloat(withoutCommas);
+      } else if (/^\d{1,7}\.\d{2}$/.test(cleanText)) {
+        // Format: 1234.56
         return parseFloat(cleanText);
+      } else if (/^\d{1,10}$/.test(cleanText)) {
+        // Format: 1234 (whole number)
+        return parseFloat(cleanText);
+      } else {
+        // Reject anything else to avoid parsing errors
+        console.warn('Rejected invalid amount format:', cleanText);
+        return 0;
       }
     } catch (error) {
       console.warn('Failed to parse amount:', text, error);
       return 0;
     }
-    
-    return 0;
   }
 
   /**
@@ -570,40 +617,41 @@ export class PdfTableParserService {
       .map(row => row.rawText)
       .join('\n');
     
-    console.log('Combined structured text:', allText);
+    console.log('Combined structured text (first 500 chars):', allText.substring(0, 500));
     
-    // Use enhanced regex approach
+    // Use enhanced regex approach with strict amount validation
     const targetDesignations = this.getTargetDesignations();
     const designationPattern = targetDesignations.join('|');
 
     const transactionRegex = new RegExp(
       `(\\d{1,2}[-\/]\\d{1,2}[-\/]\\d{4}).*?(${designationPattern}).*?` +
-        `([\\d,]+\\.?\\d*)(?:\\s+([\\d,]+\\.?\\d*))?`,
+        `\\s+([\\d,]{1,10}\\.\\d{2})(?!\\d)`, // Strict amount format with length limit
       'gi'
     );
 
     let match;
     while ((match = transactionRegex.exec(allText)) !== null) {
-      const amount1 = this.parseAmountEnhanced(match[3]);
-      const amount2 = match[4] ? this.parseAmountEnhanced(match[4]) : 0;
+      const amount = this.parseAmountEnhanced(match[3]);
       
-      if (amount1 > 0) {
+      if (amount > 0 && amount <= 10000000) {
         transactions.push({
           date: match[1],
           designation: match[2],
-          debit: amount1,
+          debit: amount,
           credit: 0,
-          montant: -amount1
+          montant: -amount
         });
         
         console.log('✓ Regex found:', {
           date: match[1],
           designation: match[2],
-          amount: amount1
+          amount: amount
         });
+      } else {
+        console.warn('Rejected regex amount:', amount, 'from:', match[3]);
       }
     }
     
-    return transactions;
+    return this.validateAndCleanTransactions(transactions);
   }
 }
