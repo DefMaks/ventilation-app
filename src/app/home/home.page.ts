@@ -63,109 +63,57 @@ export class HomePage {
         'COMITE DE SUIVI ET VALIDATION',
         'ONT CONTROLE ET INSPECTION DES UNITES TOURISTIQUES',
       ];
+      const designationPattern = targetDesignations.join('|');
 
       for (let i = 1; i <= pdf.numPages; i++) {
         const page = await pdf.getPage(i);
         const content = await page.getTextContent();
         const text = content.items.map((item: any) => item.str).join(' ');
 
-        // Parse by table structure instead of regex patterns
-        const lines = text.split('\n');
-        let inTransactionTable = false;
+        // Enhanced regex to capture amounts with commas and decimals
+        // Look for patterns like: date designation amount1 amount2 (where amount2 might be balance)
+        const transactionRegex = new RegExp(
+          `(\\d{2}-\\d{2}-\\d{4}).*?(${designationPattern}).*?` +
+            `([\\d,]+\\.\\d{2})(?:\\s+([\\d,]+\\.\\d{2}))?`, // Two amounts: debit/credit and possibly balance
+          'gi'
+        );
 
-        for (let lineIndex = 0; lineIndex < lines.length; lineIndex++) {
-          const line = lines[lineIndex].trim();
+        let match;
+        while ((match = transactionRegex.exec(text)) !== null) {
+          const amount1 = this.parseAmount(match[3]);
+          const amount2 = match[4] ? this.parseAmount(match[4]) : 0;
           
-          // Detect table header
-          if (line.includes('Transaction Date') && line.includes('Credit')) {
-            inTransactionTable = true;
-            continue;
-          }
+          // Logic to determine if it's a debit or credit
+          // In bank statements, typically:
+          // - If there's only one amount, check context or assume it's a debit (expense)
+          // - If there are two amounts, the first is usually the transaction amount, second is balance
           
-          if (inTransactionTable && line.length > 0) {
-            // Split by multiple spaces or tabs to separate columns
-            const columns = line.split(/\s{2,}|\t/);
-            
-            if (columns.length >= 5) {
-              const transDate = columns[0];
-              const valueDate = columns[1]; 
-              const narrative = columns[2];
-              const debitCol = columns[3].trim();
-              const creditCol = columns[4].trim();
-              
-              // Check if this row contains our target designations
-              const matchedDesignation = targetDesignations.find(des => 
-                narrative.toUpperCase().includes(des.toUpperCase())
-              );
-              
-              if (matchedDesignation && transDate.match(/\d{2}-\d{2}-\d{4}/)) {
-                // Parse debit and credit from their respective columns
-                const debit = debitCol && debitCol !== '' ? this.parseAmount(debitCol) : 0;
-                const credit = creditCol && creditCol !== '' ? this.parseAmount(creditCol) : 0;
-                
-                // Calculate net amount (positive for credits, negative for debits)
-                const montant = credit > 0 ? credit : -debit;
-                
-                result.push({
-                  date: transDate,
-                  designation: matchedDesignation,
-                  debit: debit,
-                  credit: credit,
-                  montant: montant,
-                });
-                
-                console.log(`Found transaction: ${transDate} | ${matchedDesignation} | Debit: ${debit} | Credit: ${credit} | Net: ${montant}`);
-              }
-            }
-          }
-        }
-
-        // Fallback: If table parsing doesn't work, try regex approach
-        if (result.length === 0) {
-          const designationPattern = targetDesignations.join('|');
+          let debit = 0;
+          let credit = 0;
+          let montant = 0;
           
-          // Look for patterns: date + designation + amounts
-          const transactionRegex = new RegExp(
-            `(\\d{2}-\\d{2}-\\d{4}).*?(${designationPattern}).*?([\\d,]+\\.\\d{2})(?:\\s+([\\d,]+\\.\\d{2}))?`,
-            'gi'
-          );
-
-          let match;
-          while ((match = transactionRegex.exec(text)) !== null) {
-            const amount1 = this.parseAmount(match[3]);
-            const amount2 = match[4] ? this.parseAmount(match[4]) : 0;
-            
-            // Improved logic: check context to determine if it's debit or credit
-            let debit = 0;
-            let credit = 0;
-            let montant = 0;
-            
-            // Look at surrounding text for clues
-            const fullMatch = match[0];
-            const beforeText = text.substring(Math.max(0, match.index - 100), match.index);
-            const afterText = text.substring(match.index + fullMatch.length, match.index + fullMatch.length + 100);
-            
-            // Check if we can find "Credit" or "Debit" indicators in surrounding text
-            if (afterText.includes('Credit') || beforeText.includes('Credit')) {
-              // This is likely a credit transaction
-              credit = amount1;
-              debit = 0;
-              montant = amount1;
-            } else {
-              // Default to debit for expense tracking
-              debit = amount1;
-              credit = 0;
-              montant = -amount1;
-            }
-
-            result.push({
-              date: match[1],
-              designation: match[2],
-              debit: debit,
-              credit: credit,
-              montant: montant,
-            });
+          // For now, let's assume single amounts are debits (expenses) since this is an expense tracking system
+          // You may need to adjust this logic based on your specific PDF format
+          if (amount2 === 0) {
+            // Single amount - assume it's a debit (expense)
+            debit = amount1;
+            credit = 0;
+            montant = -amount1; // Negative for debit
+          } else {
+            // Two amounts - need to determine which is debit/credit based on context
+            // This might need adjustment based on your PDF format
+            debit = amount1;
+            credit = 0;
+            montant = -amount1; // Negative for debit
           }
+
+          result.push({
+            date: match[1],
+            designation: match[2],
+            debit: debit,
+            credit: credit,
+            montant: montant,
+          });
         }
       }
 
