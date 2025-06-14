@@ -27,10 +27,14 @@ export class TransactionQuickviewComponent {
   }
 
   isSuspiciousAmount(amount: number): boolean {
-    return Math.abs(amount) > 1000000; // Amounts over 1M CDF are suspicious
+    return Math.abs(amount) > 100000; // Amounts over 100K USD are suspicious
   }
 
-  formatCurrency(amount: number, currency: string = 'CDF'): string {
-    return `${amount.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${currency}`;
+  formatCurrency(amount: number, currency: string = 'USD'): string {
+    if (currency === 'CDF') {
+      return `${amount.toLocaleString('fr-FR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })} ${currency}`;
+    } else {
+      return `${amount.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${currency}`;
+    }
   }
 }

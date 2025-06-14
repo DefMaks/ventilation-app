@@ -28,12 +28,12 @@
           <strong class="stat-value">{{ transactions.length }}</strong>
         </div>
         <div class="stat-item">
-          <span class="stat-label">Total CDF</span>
-          <strong class="stat-value defmaks-amount-positive">{{ formatCurrency(totalAmount) }}</strong>
+          <span class="stat-label">Total USD</span>
+          <strong class="stat-value usd-amount">{{ formatCurrency(totalAmount, 'USD') }}</strong>
         </div>
-        <div class="stat-item" *ngIf="totalUsdAmount > 0">
-          <span class="stat-label">Total USD (original)</span>
-          <strong class="stat-value usd-amount">{{ formatCurrency(totalUsdAmount, 'USD') }}</strong>
+        <div class="stat-item" *ngIf="exchangeRate">
+          <span class="stat-label">Équivalent CDF</span>
+          <strong class="stat-value cdf-amount">{{ formatCurrency(totalAmount * exchangeRate, 'CDF') }}</strong>
         </div>
         <div class="stat-item" *ngIf="exchangeRate">
           <span class="stat-label">Taux appliqué</span>
@@ -48,7 +48,7 @@
     <ion-card-header>
       <ion-card-title class="defmaks-title">
         <ion-icon name="receipt-outline" color="secondary"></ion-icon>
-        Détail des transactions
+        Détail des transactions (USD)
       </ion-card-title>
     </ion-card-header>
     <ion-card-content>
@@ -85,46 +85,39 @@
           <!-- Transaction Amounts -->
           <div class="transaction-amounts">
             <div *ngIf="transaction.debit > 0" class="amount-row debit-row">
-              <span class="amount-label">Débit CDF:</span>
-              <span class="amount-value defmaks-amount-negative">{{ formatCurrency(transaction.debit) }}</span>
+              <span class="amount-label">Débit USD:</span>
+              <span class="amount-value defmaks-amount-negative">{{ formatCurrency(transaction.debit, 'USD') }}</span>
             </div>
             <div *ngIf="transaction.credit > 0" class="amount-row credit-row">
-              <span class="amount-label">Crédit CDF:</span>
-              <span class="amount-value defmaks-amount-positive">{{ formatCurrency(transaction.credit) }}</span>
+              <span class="amount-label">Crédit USD:</span>
+              <span class="amount-value defmaks-amount-positive">{{ formatCurrency(transaction.credit, 'USD') }}</span>
             </div>
             <div class="amount-row net-row">
-              <span class="amount-label">Net CDF:</span>
+              <span class="amount-label">Net USD:</span>
               <strong [class]="transaction.montant >= 0 ? 'defmaks-amount-positive' : 'defmaks-amount-negative'">
-                {{ formatCurrency(transaction.montant) }}
+                {{ formatCurrency(transaction.montant, 'USD') }}
               </strong>
             </div>
             
-            <!-- Original USD amounts for suspicious transactions -->
-            <div *ngIf="getOriginalUsdAmount(i) && isSuspiciousAmount(transaction.montant)" 
-                 class="original-amounts-section">
-              <div class="original-header">
+            <!-- CDF conversion preview for suspicious transactions -->
+            <div *ngIf="isSuspiciousAmount(transaction.montant) && exchangeRate" 
+                 class="conversion-preview">
+              <div class="conversion-header">
                 <ion-icon name="swap-horizontal-outline" size="small"></ion-icon>
-                <span class="original-title">Montants originaux (USD)</span>
+                <span class="conversion-title">Aperçu conversion CDF</span>
               </div>
-              <div *ngIf="getOriginalUsdAmount(i)!.debit > 0" class="amount-row original-row">
-                <span class="amount-label">Débit USD:</span>
-                <span class="usd-original">{{ formatCurrency(getOriginalUsdAmount(i)!.debit, 'USD') }}</span>
+              <div *ngIf="transaction.debit > 0" class="amount-row conversion-row">
+                <span class="amount-label">Débit CDF:</span>
+                <span class="cdf-amount">{{ formatCurrency(transaction.debit * exchangeRate, 'CDF') }}</span>
               </div>
-              <div *ngIf="getOriginalUsdAmount(i)!.credit > 0" class="amount-row original-row">
-                <span class="amount-label">Crédit USD:</span>
-                <span class="usd-original">{{ formatCurrency(getOriginalUsdAmount(i)!.credit, 'USD') }}</span>
+              <div *ngIf="transaction.credit > 0" class="amount-row conversion-row">
+                <span class="amount-label">Crédit CDF:</span>
+                <span class="cdf-amount">{{ formatCurrency(transaction.credit * exchangeRate, 'CDF') }}</span>
               </div>
-              <div class="amount-row original-row">
-                <span class="amount-label">Net USD:</span>
-                <strong class="usd-original">{{ formatCurrency(getOriginalUsdAmount(i)!.montant, 'USD') }}</strong>
+              <div class="amount-row conversion-row">
+                <span class="amount-label">Net CDF:</span>
+                <strong class="cdf-amount">{{ formatCurrency(transaction.montant * exchangeRate, 'CDF') }}</strong>
               </div>
-            </div>
-            
-            <!-- Regular USD amounts for non-suspicious transactions -->
-            <div *ngIf="getOriginalUsdAmount(i) && !isSuspiciousAmount(transaction.montant)" 
-                 class="amount-row original-row">
-              <span class="amount-label">Original USD:</span>
-              <small class="usd-original">{{ formatCurrency(getOriginalUsdAmount(i)!.montant, 'USD') }}</small>
             </div>
           </div>
         </div>

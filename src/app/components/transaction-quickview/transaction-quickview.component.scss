@@ -63,6 +63,10 @@
           color: var(--ion-color-tertiary);
           font-style: italic;
         }
+        
+        &.cdf-amount {
+          color: var(--ion-color-success);
+        }
       }
     }
   }
@@ -190,33 +194,32 @@
           }
         }
         
-        &.original-row {
-          .usd-original {
+        &.conversion-row {
+          .cdf-amount {
             font-size: 0.8rem;
-            color: var(--ion-color-tertiary);
-            font-style: italic;
+            color: var(--ion-color-success);
             font-weight: 500;
           }
         }
       }
       
-      .original-amounts-section {
+      .conversion-preview {
         margin-top: 12px;
         padding: 12px;
-        background: rgba(74, 144, 226, 0.05);
-        border: 1px solid rgba(74, 144, 226, 0.2);
+        background: rgba(16, 185, 129, 0.05);
+        border: 1px solid rgba(16, 185, 129, 0.2);
         border-radius: 8px;
         
-        .original-header {
+        .conversion-header {
           display: flex;
           align-items: center;
           gap: 6px;
           margin-bottom: 8px;
           
-          .original-title {
+          .conversion-title {
             font-size: 0.8rem;
             font-weight: 600;
-            color: var(--ion-color-tertiary);
+            color: var(--ion-color-success);
             text-transform: uppercase;
             letter-spacing: 0.02em;
           }
@@ -228,7 +231,7 @@
           &:last-child {
             margin-bottom: 0;
             padding-top: 6px;
-            border-top: 1px solid rgba(74, 144, 226, 0.2);
+            border-top: 1px solid rgba(16, 185, 129, 0.2);
           }
         }
       }

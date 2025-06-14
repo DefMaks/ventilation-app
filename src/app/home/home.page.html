@@ -48,14 +48,15 @@
     </ion-card-content>
   </div>
 
-  <!-- Exchange Rate Info -->
+  <!-- Exchange Rate Info for Export -->
   <div *ngIf="transactions.length > 0" class="defmaks-stats-card">
     <div class="exchange-rate-display">
       <div class="rate-info">
         <ion-icon name="swap-horizontal-outline" size="large"></ion-icon>
         <div class="rate-details">
-          <h3>Taux de change appliqué</h3>
+          <h3>Taux de change pour export</h3>
           <p class="rate-value">1 USD = {{ currentExchangeRate | number:'1.0-0' }} CDF</p>
+          <small class="rate-note">Les données sont affichées en USD, converties en CDF lors de l'export</small>
         </div>
       </div>
       <ion-button 
@@ -114,7 +115,7 @@
         <ion-icon name="document-outline" slot="start"></ion-icon>
         <div class="button-content">
           <span class="button-title">Créer Template Excel ONT</span>
-          <span class="button-subtitle">Format officiel recommandé</span>
+          <span class="button-subtitle">Format officiel recommandé (USD → CDF)</span>
         </div>
       </ion-button>
 
@@ -126,7 +127,7 @@
         <ion-icon name="download-outline" slot="start"></ion-icon>
         <div class="button-content">
           <span class="button-title">Export Simple</span>
-          <span class="button-subtitle">Format de compatibilité</span>
+          <span class="button-subtitle">Format de compatibilité (USD → CDF)</span>
         </div>
       </ion-button>
     </div>
@@ -140,7 +141,7 @@
         Mettre à jour un template existant
       </ion-card-title>
       <ion-card-subtitle class="defmaks-subtitle">
-        Importez un fichier Excel existant pour le mettre à jour
+        Importez un fichier Excel existant pour le mettre à jour (conversion USD → CDF appliquée)
       </ion-card-subtitle>
     </ion-card-header>
     <ion-card-content>
@@ -166,7 +167,7 @@
     <ion-card-header>
       <ion-card-title class="defmaks-title">
         <ion-icon name="analytics-outline" color="primary"></ion-icon>
-        Résumé des données ({{ transactions.length }} transactions)
+        Résumé des données ({{ transactions.length }} transactions en USD)
       </ion-card-title>
     </ion-card-header>
     <ion-card-content>
@@ -181,8 +182,8 @@
             <div class="summary-stats">
               <span class="transaction-count">{{ summary.count }} transaction(s)</span>
               <div class="amount-display">
-                <strong class="cdf-amount defmaks-amount-positive">{{ summary.total | number:'1.2-2' }} CDF</strong>
-                <small *ngIf="summary.totalUsd > 0" class="usd-amount">({{ summary.totalUsd | number:'1.2-2' }} USD)</small>
+                <strong class="usd-amount defmaks-amount-positive">{{ summary.total | number:'1.2-2' }} USD</strong>
+                <small class="conversion-note">≈ {{ (summary.total * currentExchangeRate) | number:'1.0-0' }} CDF</small>
               </div>
             </div>
           </div>
@@ -230,43 +231,37 @@
                 <div class="transaction-amounts">
                   <div *ngIf="t.debit > 0" class="amount-row debit-row">
                     <span class="amount-label">Débit:</span>
-                    <span class="amount-value defmaks-amount-negative">{{ t.debit | number:'1.2-2' }} CDF</span>
+                    <span class="amount-value defmaks-amount-negative">{{ t.debit | number:'1.2-2' }} USD</span>
                   </div>
                   <div *ngIf="t.credit > 0" class="amount-row credit-row">
                     <span class="amount-label">Crédit:</span>
-                    <span class="amount-value defmaks-amount-positive">{{ t.credit | number:'1.2-2' }} CDF</span>
+                    <span class="amount-value defmaks-amount-positive">{{ t.credit | number:'1.2-2' }} USD</span>
                   </div>
                   <div class="amount-row net-row">
                     <span class="amount-label">Net:</span>
                     <strong [class]="t.montant >= 0 ? 'defmaks-amount-positive' : 'defmaks-amount-negative'">
-                      {{ t.montant | number:'1.2-2' }} CDF
+                      {{ t.montant | number:'1.2-2' }} USD
                     </strong>
                   </div>
                   
-                  <!-- Enhanced original amount display for suspicious transactions -->
-                  <div *ngIf="usdAmounts[i] && isSuspiciousAmount(t.montant)" class="original-amounts-section">
-                    <div class="original-header">
+                  <!-- Show CDF conversion preview for suspicious amounts -->
+                  <div *ngIf="isSuspiciousAmount(t.montant)" class="conversion-preview">
+                    <div class="conversion-header">
                       <ion-icon name="swap-horizontal-outline" size="small"></ion-icon>
-                      <span class="original-title">Montants originaux (USD)</span>
+                      <span class="conversion-title">Aperçu conversion CDF</span>
                     </div>
-                    <div *ngIf="usdAmounts[i].debit > 0" class="amount-row original-row">
-                      <span class="amount-label">Débit USD:</span>
-                      <span class="usd-original">{{ usdAmounts[i].debit | number:'1.2-2' }} USD</span>
+                    <div *ngIf="t.debit > 0" class="amount-row conversion-row">
+                      <span class="amount-label">Débit CDF:</span>
+                      <span class="cdf-amount">{{ (t.debit * currentExchangeRate) | number:'1.0-0' }} CDF</span>
                     </div>
-                    <div *ngIf="usdAmounts[i].credit > 0" class="amount-row original-row">
-                      <span class="amount-label">Crédit USD:</span>
-                      <span class="usd-original">{{ usdAmounts[i].credit | number:'1.2-2' }} USD</span>
+                    <div *ngIf="t.credit > 0" class="amount-row conversion-row">
+                      <span class="amount-label">Crédit CDF:</span>
+                      <span class="cdf-amount">{{ (t.credit * currentExchangeRate) | number:'1.0-0' }} CDF</span>
                     </div>
-                    <div class="amount-row original-row">
-                      <span class="amount-label">Net USD:</span>
-                      <strong class="usd-original">{{ usdAmounts[i].montant | number:'1.2-2' }} USD</strong>
+                    <div class="amount-row conversion-row">
+                      <span class="amount-label">Net CDF:</span>
+                      <strong class="cdf-amount">{{ (t.montant * currentExchangeRate) | number:'1.0-0' }} CDF</strong>
                     </div>
-                  </div>
-                  
-                  <!-- Regular original amount for non-suspicious transactions -->
-                  <div *ngIf="usdAmounts[i] && !isSuspiciousAmount(t.montant)" class="amount-row original-row">
-                    <span class="amount-label">Original:</span>
-                    <small class="usd-original">{{ usdAmounts[i].montant | number:'1.2-2' }} USD</small>
                   </div>
                 </div>
               </div>
