@@ -1,8 +1,11 @@
 import { Component } from '@angular/core';
+import { ModalController } from '@ionic/angular';
 import * as XLSX from 'xlsx';
 import * as pdfjsLib from 'pdfjs-dist';
 import { getDocument, GlobalWorkerOptions } from 'pdfjs-dist';
 import { ExcelTemplateService, TransactionData } from '../services/excel-template.service';
+import { CurrencyService } from '../services/currency.service';
+import { CurrencyModalComponent } from '../components/currency-modal/currency-modal.component';
 
 // Configuration du worker
 GlobalWorkerOptions.workerSrc =
@@ -18,8 +21,20 @@ export class HomePage {
   transactions: TransactionData[] = [];
   isProcessing = false;
   validationErrors: string[] = [];
+  currentExchangeRate: number = 2800;
+  usdAmounts: TransactionData[] = []; // Store original USD amounts
 
-  constructor(private excelTemplateService: ExcelTemplateService) {}
+  constructor(
+    private excelTemplateService: ExcelTemplateService,
+    private currencyService: CurrencyService,
+    private modalController: ModalController
+  ) {
+    // Load stored exchange rate on initialization
+    const storedRate = this.currencyService.getStoredRate();
+    if (storedRate) {
+      this.currentExchangeRate = storedRate.rate;
+    }
+  }
 
   async onFileSelected(event: any) {
     const file = event.target.files[0];
@@ -80,11 +95,20 @@ export class HomePage {
         }
       }
 
-      console.log('Transactions extraites:', result);
-      this.transactions = result;
+      console.log('Transactions extraites (USD):', result);
+      
+      // Store original USD amounts
+      this.usdAmounts = [...result];
+      
+      // Check if we need to ask for exchange rate
+      if (result.length > 0) {
+        await this.handleCurrencyConversion(result);
+      } else {
+        this.transactions = result;
+      }
 
       // Validate extracted data
-      const validation = this.excelTemplateService.validateData(result);
+      const validation = this.excelTemplateService.validateData(this.transactions);
       if (!validation.isValid) {
         this.validationErrors = validation.errors;
         console.warn('Erreurs de validation:', validation.errors);
@@ -98,6 +122,45 @@ export class HomePage {
     }
   }
 
+  /**
+   * Handle currency conversion from USD to CDF
+   */
+  private async handleCurrencyConversion(usdTransactions: TransactionData[]): Promise<void> {
+    let exchangeRate = this.currentExchangeRate;
+
+    // Check if we should ask for rate
+    if (this.currencyService.shouldAskForRate()) {
+      const modal = await this.modalController.create({
+        component: CurrencyModalComponent,
+        componentProps: {
+          currentRate: this.currentExchangeRate
+        },
+        backdropDismiss: false
+      });
+
+      await modal.present();
+      const { data } = await modal.onDidDismiss();
+
+      if (data && data.rate) {
+        exchangeRate = data.rate;
+        this.currentExchangeRate = data.rate;
+        
+        // Save the rate if user confirmed
+        this.currencyService.saveRate(data.rate, data.dontAskAgain);
+      }
+    }
+
+    // Convert all transactions from USD to CDF
+    this.transactions = usdTransactions.map(transaction => ({
+      ...transaction,
+      debit: transaction.debit > 0 ? this.currencyService.convertUsdToCdf(transaction.debit, exchangeRate) : 0,
+      credit: transaction.credit > 0 ? this.currencyService.convertUsdToCdf(transaction.credit, exchangeRate) : 0,
+      montant: this.currencyService.convertUsdToCdf(transaction.montant, exchangeRate)
+    }));
+
+    console.log(`Transactions converties (USD → CDF au taux ${exchangeRate}):`, this.transactions);
+  }
+
   exportToExcel() {
     if (this.transactions.length === 0) {
       console.warn('Aucune transaction à exporter');
@@ -105,7 +168,7 @@ export class HomePage {
     }
 
     try {
-      // Create Excel template with extracted data
+      // Create Excel template with converted CDF data
       this.excelTemplateService.createExcelTemplate(this.transactions);
       console.log('Template Excel créé avec succès');
     } catch (error) {
@@ -160,24 +223,68 @@ export class HomePage {
 
   clearData() {
     this.transactions = [];
+    this.usdAmounts = [];
     this.validationErrors = [];
   }
 
   getSummaryByDesignation() {
-    const summaryMap = new Map<string, { count: number; total: number }>();
+    const summaryMap = new Map<string, { count: number; total: number; totalUsd: number }>();
     
-    this.transactions.forEach(t => {
-      const existing = summaryMap.get(t.designation) || { count: 0, total: 0 };
+    this.transactions.forEach((t, index) => {
+      const existing = summaryMap.get(t.designation) || { count: 0, total: 0, totalUsd: 0 };
+      const originalUsdAmount = this.usdAmounts[index] ? Math.abs(this.usdAmounts[index].montant) : 0;
+      
       summaryMap.set(t.designation, {
         count: existing.count + 1,
-        total: existing.total + Math.abs(t.montant)
+        total: existing.total + Math.abs(t.montant),
+        totalUsd: existing.totalUsd + originalUsdAmount
       });
     });
 
     return Array.from(summaryMap.entries()).map(([designation, data]) => ({
       designation,
       count: data.count,
-      total: data.total
+      total: data.total,
+      totalUsd: data.totalUsd
     }));
+  }
+
+  /**
+   * Reset exchange rate settings (for testing)
+   */
+  resetExchangeRate() {
+    this.currencyService.clearStoredRate();
+    this.currentExchangeRate = 2800;
+    console.log('Taux de change réinitialisé');
+  }
+
+  /**
+   * Manually change exchange rate
+   */
+  async changeExchangeRate() {
+    const modal = await this.modalController.create({
+      component: CurrencyModalComponent,
+      componentProps: {
+        currentRate: this.currentExchangeRate
+      }
+    });
+
+    await modal.present();
+    const { data } = await modal.onDidDismiss();
+
+    if (data && data.rate && this.usdAmounts.length > 0) {
+      this.currentExchangeRate = data.rate;
+      this.currencyService.saveRate(data.rate, data.dontAskAgain);
+      
+      // Reconvert transactions with new rate
+      this.transactions = this.usdAmounts.map(transaction => ({
+        ...transaction,
+        debit: transaction.debit > 0 ? this.currencyService.convertUsdToCdf(transaction.debit, data.rate) : 0,
+        credit: transaction.credit > 0 ? this.currencyService.convertUsdToCdf(transaction.credit, data.rate) : 0,
+        montant: this.currencyService.convertUsdToCdf(transaction.montant, data.rate)
+      }));
+
+      console.log(`Transactions reconverties au nouveau taux ${data.rate}:`, this.transactions);
+    }
   }
 }

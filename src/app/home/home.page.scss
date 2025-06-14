@@ -47,6 +47,38 @@
   color: var(--ion-color-danger);
 }
 
+.usd-original {
+  color: var(--ion-color-medium);
+  font-style: italic;
+  margin-top: 2px;
+}
+
+.currency-amounts {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  
+  small {
+    color: var(--ion-color-medium);
+    font-style: italic;
+  }
+}
+
+.exchange-rate-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  
+  ion-icon {
+    font-size: 1.2em;
+  }
+  
+  span {
+    flex: 1;
+    font-size: 0.9em;
+  }
+}
+
 ion-progress-bar {
   margin: 16px 0;
 }

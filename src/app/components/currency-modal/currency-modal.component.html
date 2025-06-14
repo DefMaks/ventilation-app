@@ -1,0 +1,109 @@
+<ion-header>
+  <ion-toolbar color="primary">
+    <ion-title>Taux de change USD → CDF</ion-title>
+    <ion-buttons slot="end">
+      <ion-button (click)="cancel()">
+        <ion-icon name="close"></ion-icon>
+      </ion-button>
+    </ion-buttons>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content class="ion-padding">
+  <ion-card>
+    <ion-card-header>
+      <ion-card-title>Configuration du taux de change</ion-card-title>
+      <ion-card-subtitle>
+        Les montants du PDF sont en USD. Veuillez définir le taux de conversion vers CDF.
+      </ion-card-subtitle>
+    </ion-card-header>
+    
+    <ion-card-content>
+      <ion-item>
+        <ion-label position="stacked">
+          <strong>Taux de change (1 USD = ? CDF)</strong>
+        </ion-label>
+        <ion-input
+          type="number"
+          [(ngModel)]="exchangeRate"
+          (ionInput)="validateRate()"
+          placeholder="Ex: 2800"
+          min="1"
+          max="10000"
+          step="0.01">
+        </ion-input>
+      </ion-item>
+      
+      <ion-text color="danger" *ngIf="!isValid">
+        <p><small>Veuillez entrer un taux valide entre 1 et 10,000 CDF</small></p>
+      </ion-text>
+
+      <!-- Preset rates for quick selection -->
+      <div class="preset-rates ion-margin-top">
+        <ion-label><strong>Taux courants :</strong></ion-label>
+        <div class="rate-buttons ion-margin-top">
+          <ion-button 
+            fill="outline" 
+            size="small" 
+            (click)="setPresetRate(2750)"
+            class="ion-margin-end">
+            2,750 CDF
+          </ion-button>
+          <ion-button 
+            fill="outline" 
+            size="small" 
+            (click)="setPresetRate(2800)"
+            class="ion-margin-end">
+            2,800 CDF
+          </ion-button>
+          <ion-button 
+            fill="outline" 
+            size="small" 
+            (click)="setPresetRate(2850)">
+            2,850 CDF
+          </ion-button>
+        </div>
+      </div>
+
+      <!-- Preview calculation -->
+      <ion-card class="preview-card ion-margin-top" *ngIf="isValid">
+        <ion-card-content>
+          <ion-label>
+            <h3>Aperçu :</h3>
+            <p>100 USD = <strong>{{ (100 * exchangeRate) | number:'1.0-0' }} CDF</strong></p>
+            <p>1,000 USD = <strong>{{ (1000 * exchangeRate) | number:'1.0-0' }} CDF</strong></p>
+          </ion-label>
+        </ion-card-content>
+      </ion-card>
+
+      <!-- Don't ask again option -->
+      <ion-item class="ion-margin-top">
+        <ion-checkbox [(ngModel)]="dontAskAgain" slot="start"></ion-checkbox>
+        <ion-label class="ion-margin-start">
+          <h3>Ne plus me demander</h3>
+          <p>Utiliser ce taux automatiquement pour les prochaines conversions</p>
+        </ion-label>
+      </ion-item>
+    </ion-card-content>
+  </ion-card>
+</ion-content>
+
+<ion-footer>
+  <ion-toolbar>
+    <ion-buttons slot="start">
+      <ion-button fill="clear" (click)="cancel()">
+        Annuler
+      </ion-button>
+    </ion-buttons>
+    <ion-buttons slot="end">
+      <ion-button 
+        fill="solid" 
+        color="success" 
+        (click)="confirm()"
+        [disabled]="!isValid || exchangeRate <= 0">
+        <ion-icon name="checkmark" slot="start"></ion-icon>
+        Confirmer
+      </ion-button>
+    </ion-buttons>
+  </ion-toolbar>
+</ion-footer>

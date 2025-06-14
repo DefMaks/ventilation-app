@@ -27,6 +27,20 @@
     </ion-card-content>
   </ion-card>
 
+  <!-- Exchange rate info -->
+  <ion-card *ngIf="transactions.length > 0" color="light">
+    <ion-card-content>
+      <div class="exchange-rate-info">
+        <ion-icon name="swap-horizontal-outline" color="primary"></ion-icon>
+        <span>Taux de change utilisé: <strong>1 USD = {{ currentExchangeRate | number:'1.0-0' }} CDF</strong></span>
+        <ion-button fill="clear" size="small" (click)="changeExchangeRate()">
+          <ion-icon name="create-outline"></ion-icon>
+          Modifier
+        </ion-button>
+      </div>
+    </ion-card-content>
+  </ion-card>
+
   <!-- Processing indicator -->
   <ion-card *ngIf="isProcessing">
     <ion-card-content>
@@ -104,7 +118,10 @@
           <ion-label>
             <h3>{{ summary.designation }}</h3>
             <p>{{ summary.count }} transaction(s)</p>
-            <strong>{{ summary.total | number:'1.2-2' }} FC</strong>
+            <div class="currency-amounts">
+              <strong>{{ summary.total | number:'1.2-2' }} CDF</strong>
+              <small *ngIf="summary.totalUsd > 0">({{ summary.totalUsd | number:'1.2-2' }} USD)</small>
+            </div>
           </ion-label>
         </ion-item>
       </ion-list>
@@ -122,11 +139,14 @@
                   <h3>{{ t.date }}</h3>
                   <p>{{ t.designation }}</p>
                   <div class="transaction-amounts">
-                    <span *ngIf="t.debit > 0" class="debit">Débit: {{ t.debit | number:'1.2-2' }} FC</span>
-                    <span *ngIf="t.credit > 0" class="credit">Crédit: {{ t.credit | number:'1.2-2' }} FC</span>
+                    <span *ngIf="t.debit > 0" class="debit">Débit: {{ t.debit | number:'1.2-2' }} CDF</span>
+                    <span *ngIf="t.credit > 0" class="credit">Crédit: {{ t.credit | number:'1.2-2' }} CDF</span>
                     <strong [class.negative]="t.montant < 0">
-                      Net: {{ t.montant | number:'1.2-2' }} FC
+                      Net: {{ t.montant | number:'1.2-2' }} CDF
                     </strong>
+                    <small *ngIf="usdAmounts[i]" class="usd-original">
+                      (Original: {{ usdAmounts[i].montant | number:'1.2-2' }} USD)
+                    </small>
                   </div>
                 </ion-label>
                 <ion-badge slot="end" [color]="t.montant >= 0 ? 'success' : 'danger'">
