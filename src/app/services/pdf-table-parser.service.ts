@@ -35,16 +35,26 @@ export class PdfTableParserService {
     const content = await page.getTextContent();
     const textItems = content.items;
 
+    console.log('🔍 Raw text items found:', textItems.length);
+    
+    // Log first few items to see what we're working with
+    textItems.slice(0, 10).forEach((item, index) => {
+      console.log(`Item ${index}: "${item.str}" at (${item.transform[4]}, ${item.transform[5]})`);
+    });
+
     // Group text items by Y position (rows)
     const rowGroups = this.groupItemsByRow(textItems);
+    console.log('📊 Row groups found:', rowGroups.size);
     
     // Analyze column positions
     const columnPositions = this.detectColumnPositions(textItems);
+    console.log('📋 Column positions detected:', columnPositions);
     
     // Build table structure
     const rows: TableRow[] = [];
     let headers: string[] = [];
 
+    let rowIndex = 0;
     for (const [y, items] of rowGroups) {
       const cells = this.assignItemsToCells(items, columnPositions);
       const row: TableRow = {
@@ -55,10 +65,15 @@ export class PdfTableParserService {
       
       rows.push(row);
       
+      console.log(`Row ${rowIndex} (y=${y}): ${cells.length} cells -`, cells.map(c => `"${c.text}"`));
+      
       // Try to detect headers (usually first few rows)
       if (rows.length <= 3 && this.looksLikeHeader(cells)) {
         headers = cells.map(cell => cell.text);
+        console.log('🎯 Headers detected:', headers);
       }
+      
+      rowIndex++;
     }
 
     return {
@@ -73,7 +88,7 @@ export class PdfTableParserService {
    */
   private groupItemsByRow(textItems: any[]): Map<number, any[]> {
     const rowGroups = new Map<number, any[]>();
-    const tolerance = 2; // Y position tolerance for same row
+    const tolerance = 3; // Increased tolerance for Y position
 
     textItems.forEach(item => {
       const y = Math.round(item.transform[5] / tolerance) * tolerance;
@@ -96,7 +111,7 @@ export class PdfTableParserService {
     const uniqueX = [...new Set(xPositions)].sort((a, b) => a - b);
     
     // Group similar X positions (within tolerance)
-    const tolerance = 10;
+    const tolerance = 15; // Increased tolerance
     const columns: number[] = [];
     
     uniqueX.forEach(x => {
@@ -106,6 +121,9 @@ export class PdfTableParserService {
       }
     });
 
+    console.log('🔍 Unique X positions:', uniqueX.slice(0, 20)); // Show first 20
+    console.log('📍 Final columns:', columns);
+
     return columns.sort((a, b) => a - b);
   }
 
@@ -114,7 +132,7 @@ export class PdfTableParserService {
    */
   private assignItemsToCells(items: any[], columnPositions: number[]): TableCell[] {
     const cells: TableCell[] = [];
-    const tolerance = 15;
+    const tolerance = 20; // Increased tolerance
 
     // Initialize cells for each column
     columnPositions.forEach((colX, index) => {
@@ -131,8 +149,8 @@ export class PdfTableParserService {
           text: text,
           x: colX,
           y: items[0]?.transform[5] || 0,
-          width: 0, // Could be calculated if needed
-          height: 0  // Could be calculated if needed
+          width: 0,
+          height: 0
         });
       } else {
         // Empty cell
@@ -155,11 +173,14 @@ export class PdfTableParserService {
   private looksLikeHeader(cells: TableCell[]): boolean {
     const headerKeywords = ['date', 'narrative', 'debit', 'credit', 'balance', 'transaction', 'value'];
     
-    return cells.some(cell => 
+    const hasHeaderKeywords = cells.some(cell => 
       headerKeywords.some(keyword => 
         cell.text.toLowerCase().includes(keyword)
       )
     );
+    
+    console.log('🔍 Checking if header:', cells.map(c => c.text), 'Result:', hasHeaderKeywords);
+    return hasHeaderKeywords;
   }
 
   /**
@@ -168,21 +189,24 @@ export class PdfTableParserService {
   extractTransactionsFromTable(tableStructure: TableStructure): any[] {
     const transactions: any[] = [];
     
+    console.log('\n🎯 === STARTING TRANSACTION EXTRACTION ===');
+    console.log('Headers:', tableStructure.headers);
+    console.log('Total rows:', tableStructure.rows.length);
+    
     // Find column indices for the 5-column structure
-    const transactionDateCol = this.findColumnIndex(tableStructure.headers, ['transaction date', 'trans date']);
+    const transactionDateCol = this.findColumnIndex(tableStructure.headers, ['transaction date', 'trans date', 'date']);
     const valueDateCol = this.findColumnIndex(tableStructure.headers, ['value date']);
     const narrativeCol = this.findColumnIndex(tableStructure.headers, ['narrative', 'description']);
     const debitCol = this.findColumnIndex(tableStructure.headers, ['debit']);
     const creditCol = this.findColumnIndex(tableStructure.headers, ['credit']);
 
-    console.log('Column mapping:', { 
+    console.log('🔍 Column mapping from headers:', { 
       transactionDateCol, 
       valueDateCol, 
       narrativeCol, 
       debitCol, 
       creditCol 
     });
-    console.log('Headers found:', tableStructure.headers);
 
     // If we can't find the expected columns, try positional mapping
     // Based on your description: "Transaction Date", "Value Date", "Narrative", "Debit", "Credit"
@@ -193,38 +217,51 @@ export class PdfTableParserService {
       creditCol: creditCol >= 0 ? creditCol : 4
     };
 
-    console.log('Final column mapping:', finalMapping);
+    console.log('📍 Final column mapping:', finalMapping);
 
     // Process data rows (skip header rows)
-    const dataRows = tableStructure.rows.slice(1); // Skip first row (header)
+    let dataRows = tableStructure.rows;
+    
+    // Skip rows that look like headers
+    let startIndex = 0;
+    for (let i = 0; i < Math.min(3, dataRows.length); i++) {
+      if (this.looksLikeHeader(dataRows[i].cells)) {
+        startIndex = i + 1;
+      }
+    }
+    
+    dataRows = dataRows.slice(startIndex);
+    console.log(`📊 Processing ${dataRows.length} data rows (skipped ${startIndex} header rows)`);
 
     dataRows.forEach((row, index) => {
-      if (row.cellCount >= 5) { // Must have all 5 columns
-        console.log(`\nProcessing row ${index + 1}:`, row.cells.map(c => `"${c.text}"`));
-        
+      console.log(`\n--- Processing row ${index + 1} ---`);
+      console.log('Raw cells:', row.cells.map(c => `"${c.text}"`));
+      console.log('Cell count:', row.cellCount);
+      
+      if (row.cellCount >= 3) { // At least date, narrative, and one amount
         const date = row.cells[finalMapping.dateCol]?.text || '';
         const narrative = row.cells[finalMapping.narrativeCol]?.text || '';
         const debitText = row.cells[finalMapping.debitCol]?.text || '';
         const creditText = row.cells[finalMapping.creditCol]?.text || '';
 
-        console.log(`  Date: "${date}"`);
-        console.log(`  Narrative: "${narrative}"`);
-        console.log(`  Debit text: "${debitText}"`);
-        console.log(`  Credit text: "${creditText}"`);
+        console.log(`  📅 Date: "${date}"`);
+        console.log(`  📝 Narrative: "${narrative}"`);
+        console.log(`  💸 Debit text: "${debitText}"`);
+        console.log(`  💰 Credit text: "${creditText}"`);
 
-        // Parse amounts - be more careful about empty cells
-        const debitAmount = this.parseAmount(debitText);
-        const creditAmount = this.parseAmount(creditText);
+        // Parse amounts with enhanced debugging
+        const debitAmount = this.parseAmountWithDebug(debitText, 'DEBIT');
+        const creditAmount = this.parseAmountWithDebug(creditText, 'CREDIT');
 
-        console.log(`  Parsed debit: ${debitAmount}`);
-        console.log(`  Parsed credit: ${creditAmount}`);
+        console.log(`  ✅ Parsed debit: ${debitAmount}`);
+        console.log(`  ✅ Parsed credit: ${creditAmount}`);
 
         // Check if this is a meaningful transaction row
         const hasValidDate = this.isValidDate(date);
-        const hasValidNarrative = narrative.length > 0;
+        const hasValidNarrative = narrative.length > 2; // At least 3 characters
         const hasAmount = debitAmount > 0 || creditAmount > 0;
 
-        console.log(`  Valid date: ${hasValidDate}, Valid narrative: ${hasValidNarrative}, Has amount: ${hasAmount}`);
+        console.log(`  🔍 Validation - Date: ${hasValidDate}, Narrative: ${hasValidNarrative}, Amount: ${hasAmount}`);
 
         // Only add if we have meaningful data
         if (hasValidDate && hasValidNarrative && hasAmount) {
@@ -233,30 +270,30 @@ export class PdfTableParserService {
           let finalCredit = 0;
           let montant = 0;
 
-          // If debit column has value and credit column is empty
+          // If debit column has value and credit column is empty/zero
           if (debitAmount > 0 && creditAmount === 0) {
             finalDebit = debitAmount;
             finalCredit = 0;
             montant = -debitAmount; // Negative for debit
-            console.log(`  → DEBIT transaction: ${finalDebit}`);
+            console.log(`  🔴 → DEBIT transaction: ${finalDebit}`);
           }
-          // If credit column has value and debit column is empty
+          // If credit column has value and debit column is empty/zero
           else if (creditAmount > 0 && debitAmount === 0) {
             finalDebit = 0;
             finalCredit = creditAmount;
             montant = creditAmount; // Positive for credit
-            console.log(`  → CREDIT transaction: ${finalCredit}`);
+            console.log(`  🟢 → CREDIT transaction: ${finalCredit}`);
           }
           // If both columns have values (unusual but possible)
           else if (debitAmount > 0 && creditAmount > 0) {
             finalDebit = debitAmount;
             finalCredit = creditAmount;
             montant = creditAmount - debitAmount; // Net amount
-            console.log(`  → BOTH debit: ${finalDebit}, credit: ${finalCredit}, net: ${montant}`);
+            console.log(`  🟡 → BOTH debit: ${finalDebit}, credit: ${finalCredit}, net: ${montant}`);
           }
           // If neither column has a value (shouldn't happen if hasAmount is true)
           else {
-            console.log(`  → SKIPPING: No valid amounts found`);
+            console.log(`  ❌ → SKIPPING: No valid amounts found`);
             return;
           }
 
@@ -271,15 +308,62 @@ export class PdfTableParserService {
           console.log(`  ✅ Adding transaction:`, transaction);
           transactions.push(transaction);
         } else {
-          console.log(`  ❌ Skipping row - insufficient data (date: ${hasValidDate}, narrative: ${hasValidNarrative}, amount: ${hasAmount})`);
+          console.log(`  ❌ Skipping row - insufficient data`);
         }
       } else {
-        console.log(`Row ${index + 1} has only ${row.cellCount} cells, expected 5`);
+        console.log(`  ❌ Row has only ${row.cellCount} cells, need at least 3`);
       }
     });
 
-    console.log(`\n🎯 Total transactions extracted: ${transactions.length}`);
+    console.log(`\n🎯 === EXTRACTION COMPLETE ===`);
+    console.log(`Total transactions extracted: ${transactions.length}`);
+    
+    // Summary statistics
+    const totalDebits = transactions.reduce((sum, t) => sum + t.debit, 0);
+    const totalCredits = transactions.reduce((sum, t) => sum + t.credit, 0);
+    console.log(`💸 Total Debits: ${totalDebits.toLocaleString('en-US', {minimumFractionDigits: 2})}`);
+    console.log(`💰 Total Credits: ${totalCredits.toLocaleString('en-US', {minimumFractionDigits: 2})}`);
+    
     return transactions;
+  }
+
+  /**
+   * Parse amount with enhanced debugging
+   */
+  private parseAmountWithDebug(text: string, type: string): number {
+    console.log(`    🔍 Parsing ${type}: "${text}"`);
+    
+    if (!text || text.trim() === '' || text.trim() === '-' || text.trim() === '0.00') {
+      console.log(`    ➡️ ${type}: Empty/zero value`);
+      return 0;
+    }
+    
+    // Remove any non-numeric characters except commas and decimals
+    const cleanText = text.replace(/[^\d,.-]/g, '');
+    console.log(`    🧹 ${type}: Cleaned to "${cleanText}"`);
+    
+    if (!cleanText || cleanText === '' || cleanText === '-') {
+      console.log(`    ➡️ ${type}: No numeric content`);
+      return 0;
+    }
+    
+    try {
+      let result = 0;
+      if (cleanText.includes('.')) {
+        const parts = cleanText.split('.');
+        const integerPart = parts[0].replace(/,/g, '');
+        const decimalPart = parts[1];
+        result = parseFloat(`${integerPart}.${decimalPart}`) || 0;
+        console.log(`    ✅ ${type}: Parsed decimal "${integerPart}.${decimalPart}" = ${result}`);
+      } else {
+        result = parseFloat(cleanText.replace(/,/g, '')) || 0;
+        console.log(`    ✅ ${type}: Parsed integer "${cleanText}" = ${result}`);
+      }
+      return result;
+    } catch (error) {
+      console.warn(`    ❌ ${type}: Failed to parse "${text}"`, error);
+      return 0;
+    }
   }
 
   /**
@@ -302,11 +386,13 @@ export class PdfTableParserService {
    * Find column index by header keywords
    */
   private findColumnIndex(headers: string[], keywords: string[]): number {
-    return headers.findIndex(header => 
+    const index = headers.findIndex(header => 
       keywords.some(keyword => 
         header.toLowerCase().includes(keyword.toLowerCase())
       )
     );
+    console.log(`🔍 Looking for ${keywords} in headers, found at index: ${index}`);
+    return index;
   }
 
   /**
