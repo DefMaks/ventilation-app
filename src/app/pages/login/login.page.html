@@ -1,29 +1,74 @@
-<ion-header>
-  <ion-toolbar color="primary">
-    <ion-title>Connexion</ion-title>
-  </ion-toolbar>
-</ion-header>
+<ion-content class="login-content">
+  <div class="login-container">
+    <!-- Logo Area -->
+    <div class="logo-section">
+      <div class="logo-circle">
+        <ion-icon name="document-text-outline" class="logo-icon"></ion-icon>
+      </div>
+      <h1 class="app-title">DefMaks</h1>
+      <p class="app-subtitle">Ventilation System</p>
+    </div>
 
-<ion-content class="ion-padding">
-  <ion-card>
-    <ion-card-header>
-      <ion-card-title>Authentification</ion-card-title>
-    </ion-card-header>
-    <ion-card-content>
-      <ion-item>
-        <ion-label position="floating">Nom d'utilisateur</ion-label>
-        <ion-input [(ngModel)]="username"></ion-input>
-      </ion-item>
+    <!-- Login Form in Blurred Box -->
+    <div class="login-box">
+      <div class="login-header">
+        <h2 class="login-title">Connexion</h2>
+        <p class="login-subtitle">Accédez à votre espace de travail</p>
+      </div>
 
-      <ion-item>
-        <ion-label position="floating">Mot de passe</ion-label>
-        <ion-input [(ngModel)]="password" type="password"></ion-input>
-      </ion-item>
+      <form class="login-form">
+        <div class="input-group">
+          <ion-item class="defmaks-input login-input">
+            <ion-label position="stacked">
+              <ion-icon name="person-outline" class="input-icon"></ion-icon>
+              Nom d'utilisateur
+            </ion-label>
+            <ion-input
+              [(ngModel)]="username"
+              name="username"
+              type="text"
+              placeholder="Entrez votre nom d'utilisateur"
+              class="input-field">
+            </ion-input>
+          </ion-item>
+        </div>
 
-      <ion-button expand="block" color="success" (click)="login()"
-        >Se connecter</ion-button
-      >
-      <ion-text color="danger" *ngIf="error">{{ error }}</ion-text>
-    </ion-card-content>
-  </ion-card>
+        <div class="input-group">
+          <ion-item class="defmaks-input login-input">
+            <ion-label position="stacked">
+              <ion-icon name="lock-closed-outline" class="input-icon"></ion-icon>
+              Mot de passe
+            </ion-label>
+            <ion-input
+              [(ngModel)]="password"
+              name="password"
+              type="password"
+              placeholder="Entrez votre mot de passe"
+              class="input-field">
+            </ion-input>
+          </ion-item>
+        </div>
+
+        <ion-button
+          expand="block"
+          (click)="login()"
+          class="defmaks-button login-button">
+          <ion-icon name="log-in-outline" slot="start"></ion-icon>
+          Se connecter
+        </ion-button>
+
+        <div *ngIf="error" class="error-message">
+          <ion-icon name="alert-circle-outline" class="error-icon"></ion-icon>
+          <span>{{ error }}</span>
+        </div>
+      </form>
+
+      <div class="login-footer">
+        <p class="footer-text">
+          <ion-icon name="shield-checkmark-outline" class="shield-icon"></ion-icon>
+          Connexion sécurisée
+        </p>
+      </div>
+    </div>
+  </div>
 </ion-content>
