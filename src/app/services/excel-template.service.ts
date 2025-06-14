@@ -26,41 +26,30 @@ export class ExcelTemplateService {
   constructor() { }
 
   /**
-   * Creates Excel template with data and formulas matching the provided structure
+   * Creates Excel template with exact structure from PDF template
    */
   createExcelTemplate(transactions: TransactionData[]): void {
     // Create a new workbook
     const wb = XLSX.utils.book_new();
     
-    // Create the main worksheet data
-    const wsData = this.createTemplateData(transactions);
+    // Create the main worksheet data based on PDF template
+    const wsData = this.createTemplateFromPDF(transactions);
     
     // Convert to worksheet
     const ws = XLSX.utils.aoa_to_sheet(wsData);
     
-    // Set column widths
+    // Set column widths to match PDF layout
     ws['!cols'] = [
       { width: 8 },   // Column A (N° CPTE)
-      { width: 60 },  // Column B (DESIGNATION)
-      { width: 20 },  // Column C (MONTANT)
-      { width: 15 },  // Column D
-      { width: 15 },  // Column E
-      { width: 15 }   // Column F
+      { width: 65 },  // Column B (DESIGNATION) - wider for long text
+      { width: 18 },  // Column C (MONTANT)
+      { width: 12 },  // Column D
+      { width: 12 },  // Column E
+      { width: 12 }   // Column F
     ];
 
-    // Set specific cell formats for numbers
-    const range = XLSX.utils.decode_range(ws['!ref'] || 'A1:F50');
-    for (let R = range.s.r; R <= range.e.r; ++R) {
-      for (let C = range.s.c; C <= range.e.c; ++C) {
-        const cellAddress = XLSX.utils.encode_cell({ r: R, c: C });
-        if (!ws[cellAddress]) continue;
-        
-        // Format column C (amounts) as numbers with 2 decimal places
-        if (C === 2 && typeof ws[cellAddress].v === 'number') {
-          ws[cellAddress].z = '#,##0.00';
-        }
-      }
-    }
+    // Format cells for better appearance
+    this.formatWorksheet(ws);
 
     // Add the worksheet to workbook
     XLSX.utils.book_append_sheet(wb, ws, 'VENTILATION');
@@ -70,103 +59,194 @@ export class ExcelTemplateService {
   }
 
   /**
-   * Creates the template data structure with formulas exactly as shown in the image
+   * Creates template data structure exactly matching the PDF
    */
-  private createTemplateData(transactions: TransactionData[]): any[][] {
+  private createTemplateFromPDF(transactions: TransactionData[]): any[][] {
     // Process transactions to get aggregated data
     const processedData = this.processTransactions(transactions);
     
-    // Create the template structure exactly as shown in the image
     const data: any[][] = [];
     
-    // Header rows (rows 1-3)
+    // Row 1: REPUBLIQUE DEMOCRATIQUE DU CONGO
     data.push(['REPUBLIQUE DEMOCRATIQUE DU CONGO', '', '', '', '', '']);
+    
+    // Row 2: OFFICE NATIONAL DU TOURISME
     data.push(['OFFICE NATIONAL DU TOURISME', '', '', '', '', '']);
+    
+    // Row 3: DIRECTION FINANCIERE
     data.push(['DIRECTION FINANCIERE', '', '', '', '', '']);
-    data.push(['', '', '', '', '', '']); // Row 4 - empty
-    data.push(['', '', '', '', '', '']); // Row 5 - empty
     
-    // Row 6 - Title
+    // Row 4: Empty
+    data.push(['', '', '', '', '', '']);
+    
+    // Row 5: Empty
+    data.push(['', '', '', '', '', '']);
+    
+    // Row 6: Title
     data.push(['VENTILATION DES DEPENSES DU FONDS DE PROMOTION DU TOURISME EXERCICE 2024', '', '', '', '', '']);
-    data.push(['', '', '', '', '', '']); // Row 7 - empty
     
-    // Row 8 - Headers
+    // Row 7: Empty
+    data.push(['', '', '', '', '', '']);
+    
+    // Row 8: Headers
     data.push(['N°', 'DESIGNATION', 'MONTANT', '', '', '']);
-    data.push(['CPTE', '', '', '', '', '']); // Row 9
-    data.push(['', '', '', '', '', '']); // Row 10 - empty
-    data.push(['', '', '', '', '', '']); // Row 11 - empty
     
-    // Row 12 - ENTREES
+    // Row 9: CPTE
+    data.push(['CPTE', '', '', '', '', '']);
+    
+    // Row 10: Empty
+    data.push(['', '', '', '', '', '']);
+    
+    // Row 11: Empty
+    data.push(['', '', '', '', '', '']);
+    
+    // Row 12: ENTREES
     data.push(['', 'ENTREES', '', '', '', '']);
     
-    // Row 13 - Report amount (fixed value as shown in image)
+    // Row 13: REPORT AU 01 JANVIER 2024
     data.push(['', 'REPORT AU 01 JANVIER 2024', 13298589.15, '', '', '']);
     
-    // Row 14 - Receipts (calculated from transactions)
-    data.push(['', 'RECETTES DU FPT REALISE DU 01 JANVVIER AU 31 DEC 2024', processedData.totalReceipts, '', '', '']);
+    // Row 14: RECETTES DU FPT
+    data.push(['', 'RECETTES DU FPT REALISE DU 01 JANVIER AU 31 DEC 2024', processedData.totalReceipts, '', '', '']);
     
-    data.push(['', '', '', '', '', '']); // Row 15 - empty
+    // Row 15: Empty
+    data.push(['', '', '', '', '', '']);
     
-    // Row 16 - Total receipts (formula: C13+C14)
+    // Row 16: TOTAL RECETTES (Formula)
     data.push(['', 'TOTAL RECETTES', { f: 'C13+C14' }, '', '', '']);
     
-    data.push(['', '', '', '', '', '']); // Row 17 - empty
-    data.push(['', '', '', '', '', '']); // Row 18 - empty
+    // Row 17: Empty
+    data.push(['', '', '', '', '', '']);
     
-    // Row 19 - Account 60 total (formula: sum of C20:C26)
+    // Row 18: Empty
+    data.push(['', '', '', '', '', '']);
+    
+    // Row 19: Account 60 - 1.Achat et variation de stock (Formula)
     data.push(['60', '1.Achat et variation de stock', { f: 'SUM(C20:C26)' }, '', '', '']);
     
-    // Rows 20-26 - Individual account items with extracted data
-    data.push(['', '• Eau', this.getAccountValue(processedData, 'EAU', 46574385.58), '', '', '']);
-    data.push(['', '• Electricité', this.getAccountValue(processedData, 'ELECTRICITE', 54041736.36), '', '', '']);
-    data.push(['', '• Carburant', this.getAccountValue(processedData, 'CARBURANT', 122189392.09), '', '', '']);
-    data.push(['', '• Produits d\'entretien', this.getAccountValue(processedData, 'PRODUITS_ENTRETIEN', 1662410.00), '', '', '']);
-    data.push(['', '• Fournitures de bureau et consommables informatiques', this.getAccountValue(processedData, 'FOURNITURES', 130737751.70), '', '', '']);
-    data.push(['', '• Achat petits matériels et outillages', this.getAccountValue(processedData, 'PETITS_MATERIELS', 58740984.16), '', '', '']);
-    data.push(['', '• Fonctionnement', this.getAccountValue(processedData, 'FONCTIONNEMENT', 0), '', '', '']);
+    // Row 20: • Eau
+    data.push(['', '• Eau', this.getExtractedValue(processedData, 'EAU'), '', '', '']);
     
-    // Row 27 - Account 61
-    data.push(['61', '2. Transport', this.getAccountValue(processedData, 'TRANSPORT', 830751906.53), '', '', '']);
+    // Row 21: • Electricité
+    data.push(['', '• Electricité', this.getExtractedValue(processedData, 'ELECTRICITE'), '', '', '']);
+    
+    // Row 22: • Carburant
+    data.push(['', '• Carburant', this.getExtractedValue(processedData, 'CARBURANT'), '', '', '']);
+    
+    // Row 23: • Produits d'entretien
+    data.push(['', '• Produits d\'entretien', this.getExtractedValue(processedData, 'PRODUITS_ENTRETIEN'), '', '', '']);
+    
+    // Row 24: • Fournitures de bureau et consommables informatiques
+    data.push(['', '• Fournitures de bureau et consommables informatiques', this.getExtractedValue(processedData, 'FOURNITURES'), '', '', '']);
+    
+    // Row 25: • Achat petits matériels et outillages
+    data.push(['', '• Achat petits matériels et outillages', this.getExtractedValue(processedData, 'PETITS_MATERIELS'), '', '', '']);
+    
+    // Row 26: • Fonctionnement
+    data.push(['', '• Fonctionnement', this.getExtractedValue(processedData, 'FONCTIONNEMENT'), '', '', '']);
+    
+    // Row 27: Account 61 - 2. Transport
+    data.push(['61', '2. Transport', this.getExtractedValue(processedData, 'TRANSPORT'), '', '', '']);
+
+    // Continue with more rows as needed based on the PDF structure
+    // Add more account categories if they exist in the PDF
 
     return data;
   }
 
   /**
-   * Helper method to get account value from processed data or use default
+   * Get extracted value from PDF data, default to 0 if not found
    */
-  private getAccountValue(processedData: ExcelTemplateData, key: string, defaultValue: number): number {
-    return processedData.accountData[key] || defaultValue;
+  private getExtractedValue(processedData: ExcelTemplateData, key: string): number {
+    return processedData.accountData[key] || 0;
   }
 
   /**
-   * Processes transactions to extract relevant data for the template
+   * Format worksheet cells for better appearance
+   */
+  private formatWorksheet(ws: XLSX.WorkSheet): void {
+    const range = XLSX.utils.decode_range(ws['!ref'] || 'A1:F50');
+    
+    for (let R = range.s.r; R <= range.e.r; ++R) {
+      for (let C = range.s.c; C <= range.e.c; ++C) {
+        const cellAddress = XLSX.utils.encode_cell({ r: R, c: C });
+        if (!ws[cellAddress]) continue;
+        
+        // Format column C (amounts) as numbers with 2 decimal places
+        if (C === 2 && typeof ws[cellAddress].v === 'number') {
+          ws[cellAddress].z = '#,##0.00';
+        }
+        
+        // Bold headers
+        if (R === 0 || R === 1 || R === 2 || R === 5 || R === 7) {
+          if (!ws[cellAddress].s) ws[cellAddress].s = {};
+          ws[cellAddress].s.font = { bold: true };
+        }
+        
+        // Center align headers
+        if (R <= 7) {
+          if (!ws[cellAddress].s) ws[cellAddress].s = {};
+          ws[cellAddress].s.alignment = { horizontal: 'center' };
+        }
+      }
+    }
+  }
+
+  /**
+   * Process transactions and map to account categories
    */
   private processTransactions(transactions: TransactionData[]): ExcelTemplateData {
     const accountData: { [key: string]: number } = {};
     let totalReceipts = 0;
     
-    // Map transaction designations to account categories
+    // Enhanced mapping based on common accounting categories
     const designationMapping: { [key: string]: string } = {
       'PMT TOURISME': 'PMT_TOURISME',
-      'FPT INVESTISSEMENT': 'FPT_INVESTISSEMENT',
+      'FPT INVESTISSEMENT': 'FPT_INVESTISSEMENT', 
       'ONT FICHE STATISTIQUES': 'ONT_STATISTIQUES',
       'APPUI ADM DU TOURISME': 'APPUI_TOURISME',
       'ICCN': 'ICCN',
       'SITE TOURISTIQUE': 'SITE_TOURISTIQUE',
       'COMITE DE SUIVI ET VALIDATION': 'COMITE_SUIVI',
-      'ONT CONTROLE ET INSPECTION DES UNITES TOURISTIQUES': 'ONT_CONTROLE'
+      'ONT CONTROLE ET INSPECTION DES UNITES TOURISTIQUES': 'ONT_CONTROLE',
+      
+      // Map to specific account categories based on keywords
+      'EAU': 'EAU',
+      'ELECTRICITE': 'ELECTRICITE', 
+      'CARBURANT': 'CARBURANT',
+      'ENTRETIEN': 'PRODUITS_ENTRETIEN',
+      'FOURNITURE': 'FOURNITURES',
+      'MATERIEL': 'PETITS_MATERIELS',
+      'FONCTIONNEMENT': 'FONCTIONNEMENT',
+      'TRANSPORT': 'TRANSPORT'
     };
 
     // Process each transaction
     transactions.forEach(transaction => {
-      const mappedKey = designationMapping[transaction.designation];
+      let mappedKey = null;
+      
+      // First try exact match
+      mappedKey = designationMapping[transaction.designation];
+      
+      // If no exact match, try keyword matching
+      if (!mappedKey) {
+        for (const [keyword, category] of Object.entries(designationMapping)) {
+          if (transaction.designation.toUpperCase().includes(keyword.toUpperCase())) {
+            mappedKey = category;
+            break;
+          }
+        }
+      }
+      
       if (mappedKey) {
         if (!accountData[mappedKey]) {
           accountData[mappedKey] = 0;
         }
         accountData[mappedKey] += Math.abs(transaction.montant);
-        totalReceipts += Math.abs(transaction.montant);
       }
+      
+      // Add to total receipts regardless of mapping
+      totalReceipts += Math.abs(transaction.montant);
     });
 
     return {
@@ -196,7 +276,7 @@ export class ExcelTemplateService {
           // Process transactions
           const processedData = this.processTransactions(transactions);
           
-          // Update specific cells
+          // Update specific cells with extracted data
           this.updateWorksheetCells(worksheet, processedData);
           
           // Save the updated file
@@ -213,71 +293,63 @@ export class ExcelTemplateService {
   }
 
   /**
-   * Updates specific cells in the worksheet
+   * Updates specific cells in the worksheet with extracted data
    */
   private updateWorksheetCells(worksheet: XLSX.WorkSheet, data: ExcelTemplateData): void {
-    // Update C13 - Report amount (keep original value)
-    worksheet['C13'] = { t: 'n', v: 13298589.15 };
-    
-    // Update C14 - Total receipts from transactions
+    // Update C14 - Total receipts from extracted transactions
     worksheet['C14'] = { t: 'n', v: data.totalReceipts };
     
-    // Update C16 - Formula for total receipts
+    // Update C16 - Formula for total receipts (C13+C14)
     worksheet['C16'] = { t: 'n', f: 'C13+C14' };
     
-    // Update C19 - Formula for account 60 total
+    // Update C19 - Formula for account 60 total (SUM(C20:C26))
     worksheet['C19'] = { t: 'n', f: 'SUM(C20:C26)' };
     
-    // Update individual account items (C20-C26) with extracted data or defaults
+    // Update individual account items with extracted data (default to 0)
     const accountMappings = [
-      { cell: 'C20', key: 'EAU', default: 46574385.58 },
-      { cell: 'C21', key: 'ELECTRICITE', default: 54041736.36 },
-      { cell: 'C22', key: 'CARBURANT', default: 122189392.09 },
-      { cell: 'C23', key: 'PRODUITS_ENTRETIEN', default: 1662410.00 },
-      { cell: 'C24', key: 'FOURNITURES', default: 130737751.70 },
-      { cell: 'C25', key: 'PETITS_MATERIELS', default: 58740984.16 },
-      { cell: 'C26', key: 'FONCTIONNEMENT', default: 0 }
+      { cell: 'C20', key: 'EAU' },
+      { cell: 'C21', key: 'ELECTRICITE' },
+      { cell: 'C22', key: 'CARBURANT' },
+      { cell: 'C23', key: 'PRODUITS_ENTRETIEN' },
+      { cell: 'C24', key: 'FOURNITURES' },
+      { cell: 'C25', key: 'PETITS_MATERIELS' },
+      { cell: 'C26', key: 'FONCTIONNEMENT' },
+      { cell: 'C27', key: 'TRANSPORT' }
     ];
     
     accountMappings.forEach(mapping => {
-      const value = data.accountData[mapping.key] || mapping.default;
+      const value = data.accountData[mapping.key] || 0;
       worksheet[mapping.cell] = { t: 'n', v: value };
     });
-    
-    // Update C27 - Transport
-    worksheet['C27'] = { t: 'n', v: data.accountData['TRANSPORT'] || 830751906.53 };
   }
 
   /**
-   * Validates extracted data against expected ranges
+   * Validates extracted data
    */
   validateData(transactions: TransactionData[]): { isValid: boolean; errors: string[] } {
     const errors: string[] = [];
     
     if (!transactions || transactions.length === 0) {
       errors.push('Aucune transaction trouvée dans le PDF');
+      return { isValid: false, errors };
     }
     
-    // Check for required designations
-    const requiredDesignations = [
-      'PMT TOURISME',
-      'FPT INVESTISSEMENT',
-      'ONT FICHE STATISTIQUES'
-    ];
-    
-    const foundDesignations = transactions.map(t => t.designation);
-    requiredDesignations.forEach(designation => {
-      if (!foundDesignations.includes(designation)) {
-        errors.push(`Désignation manquante: ${designation}`);
-      }
-    });
-    
     // Check for reasonable amounts
-    transactions.forEach(transaction => {
-      if (Math.abs(transaction.montant) > 1000000000) { // 1 billion limit
-        errors.push(`Montant suspect pour ${transaction.designation}: ${transaction.montant}`);
+    transactions.forEach((transaction, index) => {
+      if (Math.abs(transaction.montant) > 10000000000) { // 10 billion limit
+        errors.push(`Montant suspect à la ligne ${index + 1}: ${transaction.montant.toLocaleString()} FC`);
+      }
+      
+      if (!transaction.date || !transaction.designation) {
+        errors.push(`Données incomplètes à la ligne ${index + 1}`);
       }
     });
+    
+    // Check total amount
+    const totalAmount = transactions.reduce((sum, t) => sum + Math.abs(t.montant), 0);
+    if (totalAmount === 0) {
+      errors.push('Aucun montant valide trouvé dans les transactions');
+    }
     
     return {
       isValid: errors.length === 0,
