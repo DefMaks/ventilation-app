@@ -54,8 +54,31 @@ export class ExcelTemplateService {
     // Add the worksheet to workbook
     XLSX.utils.book_append_sheet(wb, ws, 'VENTILATION');
     
+    // Generate dynamic filename
+    const filename = this.generateFilename();
+    
     // Save the file
-    XLSX.writeFile(wb, 'ONT_VENTILATION_2024.xlsx');
+    XLSX.writeFile(wb, filename);
+  }
+
+  /**
+   * Generates dynamic filename with current date and time
+   */
+  private generateFilename(): string {
+    const now = new Date();
+    
+    // Get month names in French
+    const monthNames = [
+      'janvier', 'février', 'mars', 'avril', 'mai', 'juin',
+      'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre'
+    ];
+    
+    const month = monthNames[now.getMonth()];
+    const year = now.getFullYear();
+    const hour = now.getHours().toString().padStart(2, '0');
+    const minute = now.getMinutes().toString().padStart(2, '0');
+    
+    return `ONT_ventillation_${month}${year}${hour}${minute}.xlsx`;
   }
 
   /**
@@ -376,8 +399,11 @@ export class ExcelTemplateService {
           // Update specific cells with extracted data
           this.updateWorksheetCells(worksheet, processedData);
           
+          // Generate dynamic filename for updated template
+          const filename = this.generateFilename('Updated');
+          
           // Save the updated file
-          XLSX.writeFile(workbook, 'ONT_VENTILATION_2024_Updated.xlsx');
+          XLSX.writeFile(workbook, filename);
           resolve();
         } catch (error) {
           reject(error);
@@ -387,6 +413,27 @@ export class ExcelTemplateService {
       reader.onerror = () => reject(new Error('Failed to read file'));
       reader.readAsArrayBuffer(file);
     });
+  }
+
+  /**
+   * Generates dynamic filename with current date and time
+   */
+  private generateFilename(suffix?: string): string {
+    const now = new Date();
+    
+    // Get month names in French
+    const monthNames = [
+      'janvier', 'février', 'mars', 'avril', 'mai', 'juin',
+      'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre'
+    ];
+    
+    const month = monthNames[now.getMonth()];
+    const year = now.getFullYear();
+    const hour = now.getHours().toString().padStart(2, '0');
+    const minute = now.getMinutes().toString().padStart(2, '0');
+    
+    const baseName = `ONT_ventillation_${month}${year}${hour}${minute}`;
+    return suffix ? `${baseName}_${suffix}.xlsx` : `${baseName}.xlsx`;
   }
 
   /**
