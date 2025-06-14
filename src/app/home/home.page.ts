@@ -67,65 +67,115 @@ export class HomePage {
       for (let i = 1; i <= pdf.numPages; i++) {
         const page = await pdf.getPage(i);
         const content = await page.getTextContent();
-        const text = content.items.map((item: any) => item.str).join(' ');
+        
+        // Get text with position information
+        const textItems = content.items as any[];
+        console.log(`Page ${i} - Found ${textItems.length} text items`);
+        
+        // Sort items by Y position (top to bottom) then X position (left to right)
+        textItems.sort((a, b) => {
+          const yDiff = b.transform[5] - a.transform[5]; // Y coordinate (inverted)
+          if (Math.abs(yDiff) > 5) return yDiff; // Different lines
+          return a.transform[4] - b.transform[4]; // Same line, sort by X
+        });
 
-        // Split text into lines for column-based parsing
-        const lines = text.split('\n');
-        let inTransactionTable = false;
+        // Group items by line (similar Y coordinates)
+        const lines: any[][] = [];
+        let currentLine: any[] = [];
+        let lastY = -1;
 
-        for (const line of lines) {
-          const trimmedLine = line.trim();
+        textItems.forEach(item => {
+          const y = Math.round(item.transform[5]);
+          if (lastY === -1 || Math.abs(y - lastY) <= 5) {
+            // Same line
+            currentLine.push(item);
+          } else {
+            // New line
+            if (currentLine.length > 0) {
+              lines.push([...currentLine]);
+            }
+            currentLine = [item];
+          }
+          lastY = y;
+        });
+        
+        if (currentLine.length > 0) {
+          lines.push(currentLine);
+        }
+
+        console.log(`Page ${i} - Grouped into ${lines.length} lines`);
+
+        // Process each line
+        for (const lineItems of lines) {
+          const lineText = lineItems.map(item => item.str).join(' ').trim();
           
           // Skip empty lines
-          if (!trimmedLine) continue;
+          if (!lineText) continue;
 
-          // Detect if we're in the transaction table area
-          if (trimmedLine.includes('Transaction Date') || trimmedLine.includes('Value Date') || trimmedLine.includes('Narrative')) {
-            inTransactionTable = true;
+          console.log(`Processing line: "${lineText}"`);
+
+          // Check if this line contains a date pattern (transaction line)
+          const dateMatch = lineText.match(/(\d{2}-\d{2}-\d{4})/);
+          if (!dateMatch) continue;
+
+          const transactionDate = dateMatch[1];
+          console.log(`Found date: ${transactionDate}`);
+
+          // Check if narrative contains any of our target designations
+          const matchedDesignation = targetDesignations.find(designation => 
+            lineText.toUpperCase().includes(designation.toUpperCase())
+          );
+
+          if (!matchedDesignation) {
+            console.log(`No matching designation found in: ${lineText}`);
             continue;
           }
 
-          // If we're in the transaction table, try to parse the line
-          if (inTransactionTable) {
-            // Split by multiple spaces or tabs to get columns
-            const columns = trimmedLine.split(/\s{2,}|\t+/).filter(col => col.trim().length > 0);
-            
-            // Expected columns: [Transaction Date, Value Date, Narrative, Debit, Credit, Balance?]
-            if (columns.length >= 5) {
-              const transactionDate = columns[0];
-              const valueDate = columns[1];
-              const narrative = columns[2];
-              const debitColumn = columns[3];
-              const creditColumn = columns[4];
-              
-              // Check if this is a valid transaction line (starts with date)
-              if (transactionDate.match(/^\d{2}-\d{2}-\d{4}$/)) {
-                
-                // Check if narrative contains any of our target designations
-                const matchedDesignation = targetDesignations.find(designation => 
-                  narrative.toUpperCase().includes(designation.toUpperCase())
-                );
+          console.log(`Found matching designation: ${matchedDesignation}`);
 
-                if (matchedDesignation) {
-                  // Parse amounts - empty cells become 0.00
-                  const debit = debitColumn && debitColumn.trim() !== '' ? this.parseAmount(debitColumn) : 0;
-                  const credit = creditColumn && creditColumn.trim() !== '' ? this.parseAmount(creditColumn) : 0;
-                  
-                  // Calculate net amount (positive for credits, negative for debits)
-                  const montant = credit > 0 ? credit : -debit;
+          // Try to extract amounts from the line
+          // Look for patterns like "34,736.28" or "12,675.00"
+          const amountPattern = /(\d{1,3}(?:,\d{3})*\.\d{2})/g;
+          const amounts: number[] = [];
+          let match;
+          
+          while ((match = amountPattern.exec(lineText)) !== null) {
+            const amount = this.parseAmount(match[1]);
+            amounts.push(amount);
+            console.log(`Found amount: ${match[1]} -> ${amount}`);
+          }
 
-                  result.push({
-                    date: transactionDate,
-                    designation: matchedDesignation,
-                    debit: debit,
-                    credit: credit,
-                    montant: montant,
-                  });
+          // Determine debit/credit based on context or position
+          let debit = 0;
+          let credit = 0;
 
-                  console.log(`Found transaction: ${transactionDate} - ${matchedDesignation} - Debit: ${debit} - Credit: ${credit}`);
-                }
-              }
+          if (amounts.length === 1) {
+            // Single amount - need to determine if it's debit or credit
+            // For now, assume credits for TRSF operations and debits for payments
+            if (matchedDesignation.includes('TRSF') || matchedDesignation.includes('DEPOT')) {
+              credit = amounts[0];
+            } else {
+              debit = amounts[0];
             }
+          } else if (amounts.length >= 2) {
+            // Multiple amounts - first might be debit, second credit (or vice versa)
+            // This needs refinement based on actual PDF structure
+            debit = amounts[0];
+            credit = amounts[1];
+          }
+
+          if (debit > 0 || credit > 0) {
+            const montant = credit > 0 ? credit : -debit;
+
+            result.push({
+              date: transactionDate,
+              designation: matchedDesignation,
+              debit: debit,
+              credit: credit,
+              montant: montant,
+            });
+
+            console.log(`Added transaction: ${transactionDate} - ${matchedDesignation} - Debit: ${debit} - Credit: ${credit}`);
           }
         }
       }
