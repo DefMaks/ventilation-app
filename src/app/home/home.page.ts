@@ -129,7 +129,7 @@ export class HomePage {
 
           console.log(`Found matching designation: ${matchedDesignation}`);
 
-          // Extract amounts using length-based logic
+          // Try to extract amounts from the row
           // Look for decimal numbers (potential amounts)
           const amountMatches = rowText.match(/(\d{1,3}(?:,\d{3})*(?:\.\d{2})?)/g);
           
@@ -140,37 +140,37 @@ export class HomePage {
 
           console.log(`Found potential amounts: ${amountMatches.join(', ')}`);
 
-          // Apply length-based logic for debit/credit assignment
+          // Parse amounts - assume last 1-2 numbers are debit/credit
           let debit = 0;
           let credit = 0;
 
-          for (const amountStr of amountMatches) {
-            const amount = this.parseAmount(amountStr);
+          if (amountMatches.length >= 2) {
+            // If we have 2+ amounts, assume last two are debit and credit
+            const amount1 = this.parseAmount(amountMatches[amountMatches.length - 2]);
+            const amount2 = this.parseAmount(amountMatches[amountMatches.length - 1]);
             
-            // Skip if amount is 0 or invalid
-            if (amount <= 0) continue;
+            // Determine which is debit vs credit based on context or position
+            // For now, assume first is debit, second is credit
+            debit = amount1;
+            credit = amount2;
+          } else if (amountMatches.length === 1) {
+            // Single amount - need to determine if it's debit or credit
+            const amount = this.parseAmount(amountMatches[0]);
             
-            console.log(`Amount: "${amountStr}" (length: ${amountStr.length}) = ${amount}`);
+            // Check position in text or context clues
+            const amountIndex = rowText.indexOf(amountMatches[0]);
+            const beforeAmount = rowText.substring(0, amountIndex).toLowerCase();
+            const afterAmount = rowText.substring(amountIndex + amountMatches[0].length).toLowerCase();
             
-            // Apply your length-based rule
-            if (amountStr.length === 6) {
+            // Simple heuristic: if it appears in the latter part, it might be credit
+            if (amountIndex > rowText.length * 0.7) {
               credit = amount;
-              console.log(`Assigned to CREDIT (length 6): ${amount}`);
-            } else if (amountStr.length === 5) {
-              debit = amount;
-              console.log(`Assigned to DEBIT (length 5): ${amount}`);
             } else {
-              console.log(`Amount length ${amountStr.length} - not assigned to any column`);
+              debit = amount;
             }
           }
 
-          // If no amounts were assigned, skip this transaction
-          if (debit === 0 && credit === 0) {
-            console.log(`No valid amounts assigned for transaction: ${rowText}`);
-            continue;
-          }
-
-          // Calculate net amount (credit is positive, debit is negative)
+          // Calculate net amount
           const montant = credit > 0 ? credit : -debit;
 
           result.push({
