@@ -6,7 +6,6 @@
   display: flex;
   align-items: center;
   justify-content: center;
-    top: 21vh;
 }
 
 .login-content::before {
@@ -30,8 +29,8 @@
   align-items: center;
   justify-content: center;
   padding: 32px;
-  width: 40%;
-  margin: auto;
+    top: 21vh;
+  width: 100%
   height: 100vh;
 }
 
@@ -39,6 +38,8 @@
 .login-box {
   width: 400px;
   height: 400px;
+  width: 40%;
+  margin: auto;
   background: rgba(255, 255, 255, 0.1);
   backdrop-filter: blur(20px);
   border: 1px solid rgba(255, 255, 255, 0.2);
