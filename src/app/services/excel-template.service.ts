@@ -62,26 +62,6 @@ export class ExcelTemplateService {
   }
 
   /**
-   * Generates dynamic filename with current date and time
-   */
-  private generateFilename(): string {
-    const now = new Date();
-    
-    // Get month names in French
-    const monthNames = [
-      'janvier', 'février', 'mars', 'avril', 'mai', 'juin',
-      'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre'
-    ];
-    
-    const month = monthNames[now.getMonth()];
-    const year = now.getFullYear();
-    const hour = now.getHours().toString().padStart(2, '0');
-    const minute = now.getMinutes().toString().padStart(2, '0');
-    
-    return `ONT_ventillation_${month}${year}${hour}${minute}.xlsx`;
-  }
-
-  /**
    * Creates complete template data structure matching the PDF
    */
   private createTemplateFromPDF(transactions: TransactionData[]): any[][] {
