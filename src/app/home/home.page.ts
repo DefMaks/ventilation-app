@@ -69,7 +69,7 @@ export class HomePage {
         const page = await pdf.getPage(i);
         const content = await page.getTextContent();
         const text = content.items.map((item: any) => item.str).join(' ');
-
+        console.log('line '+i,content);
         // Enhanced regex to capture amounts with commas and decimals
         // Look for patterns like: date designation amount1 amount2 (where amount2 might be balance)
         const transactionRegex = new RegExp(
