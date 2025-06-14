@@ -1,43 +1,251 @@
-.preset-rates {
-  text-align: center;
+// DefMaks Modal Styling
+.defmaks-modal-header {
+  background: linear-gradient(135deg, var(--ion-color-primary) 0%, var(--ion-color-secondary) 100%);
   
-  .rate-buttons {
-    display: flex;
-    justify-content: center;
-    flex-wrap: wrap;
-    gap: 8px;
+  ion-toolbar {
+    --background: transparent;
+    --color: white;
+    padding: 8px 16px;
   }
+  
+  .defmaks-title {
+    color: white;
+    font-size: 1.25rem;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    margin: 0;
+    
+    .title-icon {
+      margin-right: 12px;
+      font-size: 1.5rem;
+    }
+  }
+  
+  .close-button {
+    --color: white;
+    --background: rgba(255, 255, 255, 0.1);
+    --border-radius: 8px;
+  }
+}
+
+.defmaks-modal-content {
+  --background: var(--ion-color-step-50);
+  padding: 16px;
+}
+
+.modal-card {
+  margin: 0;
+  box-shadow: none;
+  border: none;
+}
+
+// Rate Input Section
+.rate-input-section {
+  margin-bottom: 24px;
+  
+  .rate-input {
+    --background: var(--defmaks-surface);
+    --border-color: var(--defmaks-outline);
+    --border-radius: 12px;
+    --padding-start: 16px;
+    --padding-end: 16px;
+    border: 2px solid var(--defmaks-outline);
+    border-radius: 12px;
+    margin-bottom: 8px;
+    
+    &.item-has-focus {
+      --border-color: var(--defmaks-accent);
+      border-color: var(--defmaks-accent);
+      box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+    }
+    
+    ion-label {
+      font-weight: 600;
+      color: var(--ion-text-color);
+      margin-bottom: 8px;
+    }
+    
+    .rate-value-input {
+      font-size: 1.25rem;
+      font-weight: 600;
+      --color: var(--ion-text-color);
+      --placeholder-color: var(--ion-color-medium);
+    }
+  }
+  
+  .error-message {
+    margin-top: 8px;
+    
+    p {
+      margin: 0;
+      font-weight: 500;
+    }
+  }
+}
+
+// Preset Rates Section
+.preset-rates-section {
+  margin-bottom: 24px;
+  
+  .preset-buttons {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+    margin-top: 12px;
+    
+    .preset-button {
+      --border-radius: 12px;
+      --border-width: 2px;
+      --border-color: var(--defmaks-outline);
+      --color: var(--ion-text-color);
+      font-weight: 600;
+      transition: all 0.2s ease-in-out;
+      
+      &:hover {
+        --border-color: var(--defmaks-accent);
+        --color: var(--defmaks-accent);
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(99, 102, 241, 0.2);
+      }
+    }
+  }
+}
+
+// Preview Section
+.preview-section {
+  margin-bottom: 24px;
+  
+  .preview-card {
+    background: var(--defmaks-surface-variant);
+    border: 1px solid var(--defmaks-outline);
+    border-radius: 12px;
+    padding: 16px;
+    margin-top: 12px;
+    
+    .preview-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 8px 0;
+      
+      &:not(:last-child) {
+        border-bottom: 1px solid var(--defmaks-outline);
+      }
+      
+      .preview-label {
+        font-size: 0.9rem;
+        color: var(--ion-color-medium);
+        font-weight: 500;
+      }
+      
+      .preview-value {
+        font-size: 1rem;
+        font-weight: 700;
+      }
+    }
+  }
+}
+
+// Don't Ask Section
+.dont-ask-section {
+  margin-bottom: 16px;
+  
+  .dont-ask-item {
+    --background: var(--defmaks-surface);
+    --border-color: var(--defmaks-outline);
+    border: 1px solid var(--defmaks-outline);
+    border-radius: 12px;
+    --padding-start: 16px;
+    --padding-end: 16px;
+    
+    .defmaks-checkbox {
+      --size: 20px;
+      --checkmark-color: white;
+      --background-checked: var(--defmaks-accent);
+      --border-color-checked: var(--defmaks-accent);
+      margin-right: 16px;
+    }
+    
+    .dont-ask-label {
+      h3 {
+        font-size: 1rem;
+        font-weight: 600;
+        margin: 0 0 4px 0;
+        color: var(--ion-text-color);
+      }
+      
+      p {
+        font-size: 0.875rem;
+        color: var(--ion-color-medium);
+        margin: 0;
+        line-height: 1.4;
+      }
+    }
+  }
+}
+
+// Modal Footer
+.defmaks-modal-footer {
+  ion-toolbar {
+    --background: var(--defmaks-surface);
+    --border-color: var(--defmaks-outline);
+    border-top: 1px solid var(--defmaks-outline);
+    padding: 8px 16px;
+  }
+  
+  .cancel-button {
+    --color: var(--ion-color-medium);
+    font-weight: 500;
+  }
+  
+  .confirm-button {
+    --border-radius: 12px;
+    font-weight: 600;
+    --padding-start: 20px;
+    --padding-end: 20px;
+    
+    &:not([disabled]) {
+      box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+    }
+  }
+}
+
+// Responsive Design
+@media (min-width: 768px) {
+  .defmaks-modal-content {
+    padding: 24px;
+  }
+  
+  .modal-card {
+    max-width: 600px;
+    margin: 0 auto;
+  }
+  
+  .preset-buttons {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+  }
+}
+
+// Animation enhancements
+.preset-button,
+.rate-input,
+.dont-ask-item {
+  transition: all 0.2s ease-in-out;
 }
 
 .preview-card {
-  background-color: var(--ion-color-light);
-  border-left: 4px solid var(--ion-color-primary);
-  
-  ion-card-content {
-    padding: 12px;
-  }
-  
-  h3 {
-    margin: 0 0 8px 0;
-    color: var(--ion-color-primary);
-  }
-  
-  p {
-    margin: 4px 0;
-    font-size: 0.9em;
-  }
+  animation: fadeInUp 0.3s ease-out;
 }
 
-ion-item {
-  --padding-start: 0;
-  --inner-padding-end: 0;
-}
-
-ion-input {
-  font-size: 1.2em;
-  font-weight: 500;
-}
-
-ion-footer ion-toolbar {
-  --background: var(--ion-color-light);
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }

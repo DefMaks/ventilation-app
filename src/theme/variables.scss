@@ -1,2 +1,296 @@
-// For information on how to create your own theme, please see:
+// Ionic Variables and Theming. For more info, please see:
 // http://ionicframework.com/docs/theming/
+
+/** DefMaks Banking App Inspired Color Palette **/
+:root {
+  // Primary - Deep Professional Blue
+  --ion-color-primary: #1a2332;
+  --ion-color-primary-rgb: 26, 35, 50;
+  --ion-color-primary-contrast: #ffffff;
+  --ion-color-primary-contrast-rgb: 255, 255, 255;
+  --ion-color-primary-shade: #171e2c;
+  --ion-color-primary-tint: #313948;
+
+  // Secondary - Modern Blue
+  --ion-color-secondary: #2d4a6b;
+  --ion-color-secondary-rgb: 45, 74, 107;
+  --ion-color-secondary-contrast: #ffffff;
+  --ion-color-secondary-contrast-rgb: 255, 255, 255;
+  --ion-color-secondary-shade: #28415e;
+  --ion-color-secondary-tint: #42597a;
+
+  // Tertiary - Accent Blue
+  --ion-color-tertiary: #4a90e2;
+  --ion-color-tertiary-rgb: 74, 144, 226;
+  --ion-color-tertiary-contrast: #ffffff;
+  --ion-color-tertiary-contrast-rgb: 255, 255, 255;
+  --ion-color-tertiary-shade: #417fc7;
+  --ion-color-tertiary-tint: #5c9be5;
+
+  // Success - Professional Green
+  --ion-color-success: #10b981;
+  --ion-color-success-rgb: 16, 185, 129;
+  --ion-color-success-contrast: #ffffff;
+  --ion-color-success-contrast-rgb: 255, 255, 255;
+  --ion-color-success-shade: #0ea372;
+  --ion-color-success-tint: #28c28e;
+
+  // Warning - Professional Orange
+  --ion-color-warning: #f59e0b;
+  --ion-color-warning-rgb: 245, 158, 11;
+  --ion-color-warning-contrast: #ffffff;
+  --ion-color-warning-contrast-rgb: 255, 255, 255;
+  --ion-color-warning-shade: #d8890a;
+  --ion-color-warning-tint: #f6a823;
+
+  // Danger - Professional Red
+  --ion-color-danger: #ef4444;
+  --ion-color-danger-rgb: 239, 68, 68;
+  --ion-color-danger-contrast: #ffffff;
+  --ion-color-danger-contrast-rgb: 255, 255, 255;
+  --ion-color-danger-shade: #d23c3c;
+  --ion-color-danger-tint: #f15757;
+
+  // Light - Clean Background
+  --ion-color-light: #f8fafc;
+  --ion-color-light-rgb: 248, 250, 252;
+  --ion-color-light-contrast: #1a2332;
+  --ion-color-light-contrast-rgb: 26, 35, 50;
+  --ion-color-light-shade: #dadcde;
+  --ion-color-light-tint: #f9fbfc;
+
+  // Medium - Professional Gray
+  --ion-color-medium: #64748b;
+  --ion-color-medium-rgb: 100, 116, 139;
+  --ion-color-medium-contrast: #ffffff;
+  --ion-color-medium-contrast-rgb: 255, 255, 255;
+  --ion-color-medium-shade: #58667a;
+  --ion-color-medium-tint: #748297;
+
+  // Dark - Deep Text
+  --ion-color-dark: #0f172a;
+  --ion-color-dark-rgb: 15, 23, 42;
+  --ion-color-dark-contrast: #ffffff;
+  --ion-color-dark-contrast-rgb: 255, 255, 255;
+  --ion-color-dark-shade: #0d1425;
+  --ion-color-dark-tint: #272f40;
+
+  // Custom Banking Colors
+  --defmaks-accent: #6366f1;
+  --defmaks-accent-rgb: 99, 102, 241;
+  --defmaks-surface: #ffffff;
+  --defmaks-surface-variant: #f1f5f9;
+  --defmaks-outline: #e2e8f0;
+  --defmaks-shadow: rgba(15, 23, 42, 0.1);
+  --defmaks-elevation: rgba(15, 23, 42, 0.05);
+
+  // Background and Surface Colors
+  --ion-background-color: #f8fafc;
+  --ion-background-color-rgb: 248, 250, 252;
+  --ion-text-color: #0f172a;
+  --ion-text-color-rgb: 15, 23, 42;
+  --ion-color-step-50: #f8fafc;
+  --ion-color-step-100: #f1f5f9;
+  --ion-color-step-150: #e2e8f0;
+  --ion-color-step-200: #cbd5e1;
+  --ion-color-step-250: #94a3b8;
+  --ion-color-step-300: #64748b;
+  --ion-color-step-350: #475569;
+  --ion-color-step-400: #334155;
+  --ion-color-step-450: #1e293b;
+  --ion-color-step-500: #0f172a;
+
+  // Card and Component Styling
+  --ion-card-background: var(--defmaks-surface);
+  --ion-item-background: var(--defmaks-surface);
+  --ion-toolbar-background: var(--ion-color-primary);
+  --ion-toolbar-color: var(--ion-color-primary-contrast);
+}
+
+// Dark mode adaptations
+@media (prefers-color-scheme: dark) {
+  :root {
+    --ion-background-color: #0f172a;
+    --ion-background-color-rgb: 15, 23, 42;
+    --ion-text-color: #f8fafc;
+    --ion-text-color-rgb: 248, 250, 252;
+    
+    --defmaks-surface: #1e293b;
+    --defmaks-surface-variant: #334155;
+    --defmaks-outline: #475569;
+    --defmaks-shadow: rgba(0, 0, 0, 0.3);
+    --defmaks-elevation: rgba(0, 0, 0, 0.2);
+    
+    --ion-card-background: var(--defmaks-surface);
+    --ion-item-background: var(--defmaks-surface);
+  }
+}
+
+// Custom Banking App Styles
+.defmaks-card {
+  border-radius: 16px;
+  box-shadow: 0 4px 6px -1px var(--defmaks-shadow), 0 2px 4px -1px var(--defmaks-elevation);
+  border: 1px solid var(--defmaks-outline);
+  background: var(--defmaks-surface);
+  margin: 16px;
+  overflow: hidden;
+}
+
+.defmaks-button {
+  --border-radius: 12px;
+  --box-shadow: 0 4px 6px -1px var(--defmaks-shadow);
+  font-weight: 600;
+  letter-spacing: 0.025em;
+  text-transform: none;
+}
+
+.defmaks-input {
+  --border-radius: 12px;
+  --background: var(--defmaks-surface);
+  --border-color: var(--defmaks-outline);
+  --color: var(--ion-text-color);
+  --placeholder-color: var(--ion-color-medium);
+}
+
+.defmaks-header {
+  background: linear-gradient(135deg, var(--ion-color-primary) 0%, var(--ion-color-secondary) 100%);
+  color: white;
+  padding: 24px 16px;
+  border-radius: 0 0 24px 24px;
+  margin-bottom: 16px;
+}
+
+.defmaks-stats-card {
+  background: linear-gradient(135deg, var(--defmaks-accent) 0%, var(--ion-color-tertiary) 100%);
+  color: white;
+  border-radius: 16px;
+  padding: 20px;
+  margin: 16px;
+  box-shadow: 0 8px 25px -5px rgba(99, 102, 241, 0.3);
+}
+
+.defmaks-transaction-item {
+  --background: var(--defmaks-surface);
+  --border-color: var(--defmaks-outline);
+  --color: var(--ion-text-color);
+  border-radius: 12px;
+  margin: 8px 16px;
+  box-shadow: 0 2px 4px -1px var(--defmaks-elevation);
+}
+
+.defmaks-amount-positive {
+  color: var(--ion-color-success);
+  font-weight: 600;
+}
+
+.defmaks-amount-negative {
+  color: var(--ion-color-danger);
+  font-weight: 600;
+}
+
+.defmaks-section-header {
+  background: var(--defmaks-surface-variant);
+  color: var(--ion-color-medium);
+  font-weight: 600;
+  font-size: 0.875rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 12px 16px;
+  margin: 16px 0 8px 0;
+  border-radius: 8px;
+}
+
+// Typography enhancements
+.defmaks-title {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--ion-text-color);
+  margin-bottom: 8px;
+}
+
+.defmaks-subtitle {
+  font-size: 1rem;
+  font-weight: 500;
+  color: var(--ion-color-medium);
+  margin-bottom: 16px;
+}
+
+.defmaks-body {
+  font-size: 0.875rem;
+  line-height: 1.5;
+  color: var(--ion-text-color);
+}
+
+.defmaks-caption {
+  font-size: 0.75rem;
+  color: var(--ion-color-medium);
+  font-weight: 500;
+}
+
+// Animation and interaction enhancements
+.defmaks-interactive {
+  transition: all 0.2s ease-in-out;
+  cursor: pointer;
+}
+
+.defmaks-interactive:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px -5px var(--defmaks-shadow);
+}
+
+.defmaks-interactive:active {
+  transform: translateY(0);
+  box-shadow: 0 4px 6px -1px var(--defmaks-shadow);
+}
+
+// Status indicators
+.defmaks-status-success {
+  background: linear-gradient(135deg, var(--ion-color-success) 0%, #059669 100%);
+  color: white;
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.defmaks-status-warning {
+  background: linear-gradient(135deg, var(--ion-color-warning) 0%, #d97706 100%);
+  color: white;
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.defmaks-status-error {
+  background: linear-gradient(135deg, var(--ion-color-danger) 0%, #dc2626 100%);
+  color: white;
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+// Loading and progress indicators
+.defmaks-progress {
+  --background: var(--defmaks-outline);
+  --progress-background: linear-gradient(90deg, var(--defmaks-accent) 0%, var(--ion-color-tertiary) 100%);
+  height: 8px;
+  border-radius: 4px;
+}
+
+.defmaks-spinner {
+  --color: var(--defmaks-accent);
+}
+
+// Modal and overlay styling
+.defmaks-modal {
+  --background: var(--defmaks-surface);
+  --border-radius: 20px;
+  --box-shadow: 0 25px 50px -12px var(--defmaks-shadow);
+}
+
+.defmaks-backdrop {
+  --background: rgba(15, 23, 42, 0.5);
+  backdrop-filter: blur(8px);
+}

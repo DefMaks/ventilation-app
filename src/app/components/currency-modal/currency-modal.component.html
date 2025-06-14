@@ -1,97 +1,123 @@
 <ion-header>
-  <ion-toolbar color="primary">
-    <ion-title>Taux de change USD → CDF</ion-title>
+  <ion-toolbar class="defmaks-modal-header">
+    <ion-title class="defmaks-title">
+      <ion-icon name="swap-horizontal-outline" class="title-icon"></ion-icon>
+      Taux de change USD → CDF
+    </ion-title>
     <ion-buttons slot="end">
-      <ion-button (click)="cancel()">
-        <ion-icon name="close"></ion-icon>
+      <ion-button (click)="cancel()" class="close-button">
+        <ion-icon name="close" size="large"></ion-icon>
       </ion-button>
     </ion-buttons>
   </ion-toolbar>
 </ion-header>
 
-<ion-content class="ion-padding">
-  <ion-card>
+<ion-content class="defmaks-modal-content">
+  <div class="defmaks-card modal-card">
     <ion-card-header>
-      <ion-card-title>Configuration du taux de change</ion-card-title>
-      <ion-card-subtitle>
-        Les montants du PDF sont en USD. Veuillez définir le taux de conversion vers CDF.
+      <ion-card-title class="defmaks-title">Configuration du taux de change</ion-card-title>
+      <ion-card-subtitle class="defmaks-subtitle">
+        Les montants du PDF sont en USD. Définissez le taux de conversion vers CDF.
       </ion-card-subtitle>
     </ion-card-header>
     
     <ion-card-content>
-      <ion-item>
-        <ion-label position="stacked">
-          <strong>Taux de change (1 USD = ? CDF)</strong>
-        </ion-label>
-        <ion-input
-          type="number"
-          [(ngModel)]="exchangeRate"
-          (ionInput)="validateRate()"
-          placeholder="Ex: 2800"
-          min="1"
-          max="10000"
-          step="0.01">
-        </ion-input>
-      </ion-item>
-      
-      <ion-text color="danger" *ngIf="!isValid">
-        <p><small>Veuillez entrer un taux valide entre 1 et 10,000 CDF</small></p>
-      </ion-text>
+      <!-- Rate Input -->
+      <div class="rate-input-section">
+        <ion-item class="defmaks-input rate-input">
+          <ion-label position="stacked">
+            <strong>Taux de change (1 USD = ? CDF)</strong>
+          </ion-label>
+          <ion-input
+            type="number"
+            [(ngModel)]="exchangeRate"
+            (ionInput)="validateRate()"
+            placeholder="Ex: 2800"
+            min="1"
+            max="10000"
+            step="0.01"
+            class="rate-value-input">
+          </ion-input>
+        </ion-item>
+        
+        <ion-text color="danger" *ngIf="!isValid" class="error-message">
+          <p><small>Veuillez entrer un taux valide entre 1 et 10,000 CDF</small></p>
+        </ion-text>
+      </div>
 
-      <!-- Preset rates for quick selection -->
-      <div class="preset-rates ion-margin-top">
-        <ion-label><strong>Taux courants :</strong></ion-label>
-        <div class="rate-buttons ion-margin-top">
+      <!-- Preset Rates -->
+      <div class="preset-rates-section">
+        <div class="defmaks-section-header">Taux courants</div>
+        <div class="preset-buttons">
           <ion-button 
             fill="outline" 
-            size="small" 
+            size="default" 
             (click)="setPresetRate(2750)"
-            class="ion-margin-end">
+            class="defmaks-button preset-button">
             2,750 CDF
           </ion-button>
           <ion-button 
             fill="outline" 
-            size="small" 
+            size="default" 
             (click)="setPresetRate(2800)"
-            class="ion-margin-end">
+            class="defmaks-button preset-button">
             2,800 CDF
           </ion-button>
           <ion-button 
             fill="outline" 
-            size="small" 
-            (click)="setPresetRate(2850)">
+            size="default" 
+            (click)="setPresetRate(2850)"
+            class="defmaks-button preset-button">
             2,850 CDF
           </ion-button>
         </div>
       </div>
 
-      <!-- Preview calculation -->
-      <ion-card class="preview-card ion-margin-top" *ngIf="isValid">
-        <ion-card-content>
-          <ion-label>
-            <h3>Aperçu :</h3>
-            <p>100 USD = <strong>{{ (100 * exchangeRate) | number:'1.0-0' }} CDF</strong></p>
-            <p>1,000 USD = <strong>{{ (1000 * exchangeRate) | number:'1.0-0' }} CDF</strong></p>
-          </ion-label>
-        </ion-card-content>
-      </ion-card>
+      <!-- Preview Calculation -->
+      <div *ngIf="isValid" class="preview-section">
+        <div class="defmaks-section-header">Aperçu de conversion</div>
+        <div class="preview-card">
+          <div class="preview-item">
+            <span class="preview-label">100 USD =</span>
+            <strong class="preview-value defmaks-amount-positive">{{ (100 * exchangeRate) | number:'1.0-0' }} CDF</strong>
+          </div>
+          <div class="preview-item">
+            <span class="preview-label">1,000 USD =</span>
+            <strong class="preview-value defmaks-amount-positive">{{ (1000 * exchangeRate) | number:'1.0-0' }} CDF</strong>
+          </div>
+          <div class="preview-item">
+            <span class="preview-label">10,000 USD =</span>
+            <strong class="preview-value defmaks-amount-positive">{{ (10000 * exchangeRate) | number:'1.0-0' }} CDF</strong>
+          </div>
+        </div>
+      </div>
 
-      <!-- Don't ask again option -->
-      <ion-item class="ion-margin-top">
-        <ion-checkbox [(ngModel)]="dontAskAgain" slot="start"></ion-checkbox>
-        <ion-label class="ion-margin-start">
-          <h3>Ne plus me demander</h3>
-          <p>Utiliser ce taux automatiquement pour les prochaines conversions</p>
-        </ion-label>
-      </ion-item>
+      <!-- Don't Ask Again Option -->
+      <div class="dont-ask-section">
+        <ion-item class="dont-ask-item">
+          <ion-checkbox 
+            [(ngModel)]="dontAskAgain" 
+            slot="start"
+            class="defmaks-checkbox">
+          </ion-checkbox>
+          <ion-label class="dont-ask-label">
+            <h3 class="defmaks-title">Ne plus me demander</h3>
+            <p class="defmaks-body">Utiliser ce taux automatiquement pour les prochaines conversions</p>
+          </ion-label>
+        </ion-item>
+      </div>
     </ion-card-content>
-  </ion-card>
+  </div>
 </ion-content>
 
-<ion-footer>
+<ion-footer class="defmaks-modal-footer">
   <ion-toolbar>
     <ion-buttons slot="start">
-      <ion-button fill="clear" (click)="cancel()">
+      <ion-button 
+        fill="clear" 
+        (click)="cancel()"
+        class="defmaks-button cancel-button">
+        <ion-icon name="close-outline" slot="start"></ion-icon>
         Annuler
       </ion-button>
     </ion-buttons>
@@ -100,9 +126,10 @@
         fill="solid" 
         color="success" 
         (click)="confirm()"
-        [disabled]="!isValid || exchangeRate <= 0">
-        <ion-icon name="checkmark" slot="start"></ion-icon>
-        Confirmer
+        [disabled]="!isValid || exchangeRate <= 0"
+        class="defmaks-button confirm-button">
+        <ion-icon name="checkmark-outline" slot="start"></ion-icon>
+        Confirmer le taux
       </ion-button>
     </ion-buttons>
   </ion-toolbar>

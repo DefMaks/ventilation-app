@@ -1,162 +1,239 @@
-<ion-header>
-  <ion-toolbar color="primary">
-    <ion-title> Ventilation PDF → Excel </ion-title>
+<ion-header class="defmaks-header">
+  <ion-toolbar color="transparent">
+    <ion-title class="defmaks-title">
+      <ion-icon name="document-text-outline" class="title-icon"></ion-icon>
+      DefMaks Ventilation
+    </ion-title>
+    <ion-subtitle class="defmaks-subtitle">PDF → Excel Converter</ion-subtitle>
   </ion-toolbar>
 </ion-header>
 
-<ion-content class="ion-padding">
-  <ion-card>
+<ion-content class="defmaks-content">
+  <!-- File Upload Card -->
+  <div class="defmaks-card defmaks-interactive">
     <ion-card-header>
-      <ion-card-title>Importer un fichier PDF</ion-card-title>
+      <ion-card-title class="defmaks-title">
+        <ion-icon name="cloud-upload-outline" color="primary"></ion-icon>
+        Importer un fichier PDF
+      </ion-card-title>
+      <ion-card-subtitle class="defmaks-subtitle">
+        Sélectionnez votre relevé bancaire au format PDF
+      </ion-card-subtitle>
     </ion-card-header>
     <ion-card-content>
-      <input
-        type="file"
-        (change)="onFileSelected($event)"
-        accept="application/pdf"
-        #fileInput
-      />
+      <div class="upload-area">
+        <input
+          type="file"
+          (change)="onFileSelected($event)"
+          accept="application/pdf"
+          #fileInput
+          class="file-input"
+        />
+        <div class="upload-placeholder" (click)="fileInput.click()">
+          <ion-icon name="document-outline" size="large" color="medium"></ion-icon>
+          <p class="defmaks-body">Cliquez pour sélectionner un fichier PDF</p>
+          <p class="defmaks-caption">Formats acceptés: PDF uniquement</p>
+        </div>
+      </div>
+      
       <ion-button 
         fill="clear" 
         size="small" 
         (click)="clearData()"
-        *ngIf="transactions.length > 0">
-        <ion-icon name="refresh-outline"></ion-icon>
-        Effacer
+        *ngIf="transactions.length > 0"
+        class="defmaks-button clear-button">
+        <ion-icon name="refresh-outline" slot="start"></ion-icon>
+        Effacer les données
       </ion-button>
     </ion-card-content>
-  </ion-card>
-
-  <!-- Exchange rate info -->
-  <ion-card *ngIf="transactions.length > 0" color="light">
-    <ion-card-content>
-      <div class="exchange-rate-info">
-        <ion-icon name="swap-horizontal-outline" color="primary"></ion-icon>
-        <span>Taux de change utilisé: <strong>1 USD = {{ currentExchangeRate | number:'1.0-0' }} CDF</strong></span>
-        <ion-button fill="clear" size="small" (click)="changeExchangeRate()">
-          <ion-icon name="create-outline"></ion-icon>
-          Modifier
-        </ion-button>
-      </div>
-    </ion-card-content>
-  </ion-card>
-
-  <!-- Processing indicator -->
-  <ion-card *ngIf="isProcessing">
-    <ion-card-content>
-      <ion-progress-bar type="indeterminate"></ion-progress-bar>
-      <p class="ion-text-center ion-margin-top">Traitement du PDF en cours...</p>
-    </ion-card-content>
-  </ion-card>
-
-  <!-- Validation errors -->
-  <ion-card *ngIf="validationErrors.length > 0" color="warning">
-    <ion-card-header>
-      <ion-card-title>Avertissements</ion-card-title>
-    </ion-card-header>
-    <ion-card-content>
-      <ion-list>
-        <ion-item *ngFor="let error of validationErrors">
-          <ion-icon name="warning-outline" slot="start"></ion-icon>
-          <ion-label>{{ error }}</ion-label>
-        </ion-item>
-      </ion-list>
-    </ion-card-content>
-  </ion-card>
-
-  <!-- Export buttons -->
-  <div *ngIf="transactions.length > 0">
-    <ion-button
-      expand="block"
-      color="success"
-      (click)="exportToExcel()"
-      class="ion-margin-bottom">
-      <ion-icon name="document-outline" slot="start"></ion-icon>
-      Créer Template Excel ONT
-    </ion-button>
-
-    <ion-button
-      expand="block"
-      color="secondary"
-      (click)="exportToExcelLegacy()"
-      class="ion-margin-bottom">
-      <ion-icon name="download-outline" slot="start"></ion-icon>
-      Export Simple (Ancien)
-    </ion-button>
   </div>
 
-  <!-- Template upload section -->
-  <ion-card *ngIf="transactions.length > 0">
+  <!-- Exchange Rate Info -->
+  <div *ngIf="transactions.length > 0" class="defmaks-stats-card">
+    <div class="exchange-rate-display">
+      <div class="rate-info">
+        <ion-icon name="swap-horizontal-outline" size="large"></ion-icon>
+        <div class="rate-details">
+          <h3>Taux de change appliqué</h3>
+          <p class="rate-value">1 USD = {{ currentExchangeRate | number:'1.0-0' }} CDF</p>
+        </div>
+      </div>
+      <ion-button 
+        fill="clear" 
+        size="small" 
+        (click)="changeExchangeRate()"
+        class="defmaks-button rate-button">
+        <ion-icon name="create-outline" slot="start"></ion-icon>
+        Modifier
+      </ion-button>
+    </div>
+  </div>
+
+  <!-- Processing Indicator -->
+  <div *ngIf="isProcessing" class="defmaks-card processing-card">
+    <ion-card-content>
+      <div class="processing-content">
+        <ion-spinner name="crescent" class="defmaks-spinner"></ion-spinner>
+        <div class="processing-text">
+          <h3 class="defmaks-title">Traitement en cours...</h3>
+          <p class="defmaks-body">Extraction des données du PDF</p>
+        </div>
+      </div>
+      <ion-progress-bar type="indeterminate" class="defmaks-progress"></ion-progress-bar>
+    </ion-card-content>
+  </div>
+
+  <!-- Validation Errors -->
+  <div *ngIf="validationErrors.length > 0" class="defmaks-card error-card">
     <ion-card-header>
-      <ion-card-title>Mettre à jour un template existant</ion-card-title>
+      <ion-card-title class="error-title">
+        <ion-icon name="warning-outline" color="warning"></ion-icon>
+        Avertissements détectés
+      </ion-card-title>
     </ion-card-header>
     <ion-card-content>
-      <input
-        type="file"
-        (change)="onTemplateFileSelected($event)"
-        accept=".xlsx,.xls"
-        #templateInput
-      />
-      <p class="ion-text-wrap">
-        <small>Sélectionnez un fichier Excel existant pour le mettre à jour avec les données extraites du PDF.</small>
-      </p>
+      <div class="error-list">
+        <div *ngFor="let error of validationErrors" class="error-item">
+          <ion-icon name="alert-circle-outline" color="warning" size="small"></ion-icon>
+          <span class="defmaks-body">{{ error }}</span>
+        </div>
+      </div>
     </ion-card-content>
-  </ion-card>
+  </div>
 
-  <!-- Extracted data display -->
-  <ion-card *ngIf="transactions.length > 0">
+  <!-- Export Actions -->
+  <div *ngIf="transactions.length > 0" class="export-section">
+    <div class="defmaks-section-header">Actions d'export</div>
+    
+    <div class="export-buttons">
+      <ion-button
+        expand="block"
+        color="success"
+        (click)="exportToExcel()"
+        class="defmaks-button export-button">
+        <ion-icon name="document-outline" slot="start"></ion-icon>
+        <div class="button-content">
+          <span class="button-title">Créer Template Excel ONT</span>
+          <span class="button-subtitle">Format officiel recommandé</span>
+        </div>
+      </ion-button>
+
+      <ion-button
+        expand="block"
+        color="secondary"
+        (click)="exportToExcelLegacy()"
+        class="defmaks-button export-button">
+        <ion-icon name="download-outline" slot="start"></ion-icon>
+        <div class="button-content">
+          <span class="button-title">Export Simple</span>
+          <span class="button-subtitle">Format de compatibilité</span>
+        </div>
+      </ion-button>
+    </div>
+  </div>
+
+  <!-- Template Update Section -->
+  <div *ngIf="transactions.length > 0" class="defmaks-card">
     <ion-card-header>
-      <ion-card-title>Données extraites ({{ transactions.length }} transactions)</ion-card-title>
+      <ion-card-title class="defmaks-title">
+        <ion-icon name="refresh-outline" color="tertiary"></ion-icon>
+        Mettre à jour un template existant
+      </ion-card-title>
+      <ion-card-subtitle class="defmaks-subtitle">
+        Importez un fichier Excel existant pour le mettre à jour
+      </ion-card-subtitle>
+    </ion-card-header>
+    <ion-card-content>
+      <div class="template-upload">
+        <input
+          type="file"
+          (change)="onTemplateFileSelected($event)"
+          accept=".xlsx,.xls"
+          #templateInput
+          class="file-input"
+        />
+        <div class="upload-placeholder template-placeholder" (click)="templateInput.click()">
+          <ion-icon name="document-text-outline" size="large" color="tertiary"></ion-icon>
+          <p class="defmaks-body">Sélectionner un fichier Excel</p>
+          <p class="defmaks-caption">Formats: .xlsx, .xls</p>
+        </div>
+      </div>
+    </ion-card-content>
+  </div>
+
+  <!-- Data Summary -->
+  <div *ngIf="transactions.length > 0" class="defmaks-card">
+    <ion-card-header>
+      <ion-card-title class="defmaks-title">
+        <ion-icon name="analytics-outline" color="primary"></ion-icon>
+        Résumé des données ({{ transactions.length }} transactions)
+      </ion-card-title>
     </ion-card-header>
     <ion-card-content>
       <!-- Summary by designation -->
-      <ion-list>
-        <ion-list-header>
-          <ion-label><strong>Résumé par désignation</strong></ion-label>
-        </ion-list-header>
-        <ion-item *ngFor="let summary of getSummaryByDesignation()">
-          <ion-label>
-            <h3>{{ summary.designation }}</h3>
-            <p>{{ summary.count }} transaction(s)</p>
-            <div class="currency-amounts">
-              <strong>{{ summary.total | number:'1.2-2' }} CDF</strong>
-              <small *ngIf="summary.totalUsd > 0">({{ summary.totalUsd | number:'1.2-2' }} USD)</small>
+      <div class="defmaks-section-header">Résumé par désignation</div>
+      <div class="summary-grid">
+        <div *ngFor="let summary of getSummaryByDesignation()" class="summary-item defmaks-interactive">
+          <div class="summary-content">
+            <h3 class="summary-title">{{ summary.designation }}</h3>
+            <div class="summary-stats">
+              <span class="transaction-count">{{ summary.count }} transaction(s)</span>
+              <div class="amount-display">
+                <strong class="cdf-amount defmaks-amount-positive">{{ summary.total | number:'1.2-2' }} CDF</strong>
+                <small *ngIf="summary.totalUsd > 0" class="usd-amount">({{ summary.totalUsd | number:'1.2-2' }} USD)</small>
+              </div>
             </div>
-          </ion-label>
-        </ion-item>
-      </ion-list>
+          </div>
+          <ion-icon name="chevron-forward-outline" color="medium"></ion-icon>
+        </div>
+      </div>
 
       <!-- Detailed transactions -->
-      <ion-accordion-group>
+      <ion-accordion-group class="defmaks-accordion">
         <ion-accordion value="details">
-          <ion-item slot="header">
-            <ion-label>Voir toutes les transactions</ion-label>
+          <ion-item slot="header" class="accordion-header">
+            <ion-icon name="list-outline" slot="start" color="primary"></ion-icon>
+            <ion-label class="defmaks-title">Voir toutes les transactions</ion-label>
+            <ion-icon name="chevron-down-outline" slot="end" color="medium"></ion-icon>
           </ion-item>
-          <div slot="content">
-            <ion-list>
-              <ion-item *ngFor="let t of transactions; let i = index">
-                <ion-label>
-                  <h3>{{ t.date }}</h3>
-                  <p>{{ t.designation }}</p>
-                  <div class="transaction-amounts">
-                    <span *ngIf="t.debit > 0" class="debit">Débit: {{ t.debit | number:'1.2-2' }} CDF</span>
-                    <span *ngIf="t.credit > 0" class="credit">Crédit: {{ t.credit | number:'1.2-2' }} CDF</span>
-                    <strong [class.negative]="t.montant < 0">
-                      Net: {{ t.montant | number:'1.2-2' }} CDF
-                    </strong>
-                    <small *ngIf="usdAmounts[i]" class="usd-original">
-                      (Original: {{ usdAmounts[i].montant | number:'1.2-2' }} USD)
-                    </small>
+          <div slot="content" class="accordion-content">
+            <div class="transaction-list">
+              <div *ngFor="let t of transactions; let i = index" class="defmaks-transaction-item">
+                <div class="transaction-header">
+                  <div class="transaction-info">
+                    <h3 class="transaction-date">{{ t.date }}</h3>
+                    <p class="transaction-designation">{{ t.designation }}</p>
                   </div>
-                </ion-label>
-                <ion-badge slot="end" [color]="t.montant >= 0 ? 'success' : 'danger'">
-                  {{ i + 1 }}
-                </ion-badge>
-              </ion-item>
-            </ion-list>
+                  <div class="transaction-badge">
+                    <span class="defmaks-status-success">{{ i + 1 }}</span>
+                  </div>
+                </div>
+                
+                <div class="transaction-amounts">
+                  <div *ngIf="t.debit > 0" class="amount-row debit-row">
+                    <span class="amount-label">Débit:</span>
+                    <span class="amount-value defmaks-amount-negative">{{ t.debit | number:'1.2-2' }} CDF</span>
+                  </div>
+                  <div *ngIf="t.credit > 0" class="amount-row credit-row">
+                    <span class="amount-label">Crédit:</span>
+                    <span class="amount-value defmaks-amount-positive">{{ t.credit | number:'1.2-2' }} CDF</span>
+                  </div>
+                  <div class="amount-row net-row">
+                    <span class="amount-label">Net:</span>
+                    <strong [class]="t.montant >= 0 ? 'defmaks-amount-positive' : 'defmaks-amount-negative'">
+                      {{ t.montant | number:'1.2-2' }} CDF
+                    </strong>
+                  </div>
+                  <div *ngIf="usdAmounts[i]" class="amount-row original-row">
+                    <span class="amount-label">Original:</span>
+                    <small class="usd-original">{{ usdAmounts[i].montant | number:'1.2-2' }} USD</small>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
         </ion-accordion>
       </ion-accordion-group>
     </ion-card-content>
-  </ion-card>
+  </div>
 </ion-content>
