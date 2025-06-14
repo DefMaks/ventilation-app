@@ -32,9 +32,16 @@ export class TransactionQuickviewComponent {
 
   formatCurrency(amount: number, currency: string = 'USD'): string {
     if (currency === 'CDF') {
-      return `${amount.toLocaleString('fr-FR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })} ${currency}`;
+      return `${amount.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })} ${currency}`;
     } else {
-      return `${amount.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${currency}`;
+      return `${amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${currency}`;
     }
+  }
+
+  formatNumber(value: number, decimals: number = 2): string {
+    return value.toLocaleString('en-US', { 
+      minimumFractionDigits: decimals, 
+      maximumFractionDigits: decimals 
+    });
   }
 }

@@ -184,6 +184,18 @@
           font-weight: 600;
         }
         
+        // Credit amounts - Green
+        .credit-amount {
+          color: var(--ion-color-success);
+          font-weight: 600;
+        }
+        
+        // Debit amounts - Red
+        .debit-amount {
+          color: var(--ion-color-danger);
+          font-weight: 600;
+        }
+        
         &.net-row {
           padding-top: 8px;
           border-top: 1px solid var(--defmaks-outline);

@@ -321,7 +321,7 @@ export class HomePage {
   }
 
   /**
-   * Check if amount is suspicious (over 1M USD)
+   * Check if amount is suspicious (over 100K USD)
    */
   isSuspiciousAmount(amount: number): boolean {
     return Math.abs(amount) > 100000; // Amounts over 100K USD are suspicious
@@ -353,5 +353,26 @@ export class HomePage {
     });
 
     await modal.present();
+  }
+
+  /**
+   * Format currency with English number syntax
+   */
+  formatCurrency(amount: number, currency: string = 'USD'): string {
+    if (currency === 'CDF') {
+      return `${amount.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })} ${currency}`;
+    } else {
+      return `${amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${currency}`;
+    }
+  }
+
+  /**
+   * Format number with English syntax
+   */
+  formatNumber(value: number, decimals: number = 2): string {
+    return value.toLocaleString('en-US', { 
+      minimumFractionDigits: decimals, 
+      maximumFractionDigits: decimals 
+    });
   }
 }

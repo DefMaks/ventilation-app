@@ -37,7 +37,7 @@
         </div>
         <div class="stat-item" *ngIf="exchangeRate">
           <span class="stat-label">Taux appliqué</span>
-          <strong class="stat-value">1 USD = {{ exchangeRate | number:'1.0-0' }} CDF</strong>
+          <strong class="stat-value">1 USD = {{ formatNumber(exchangeRate, 0) }} CDF</strong>
         </div>
       </div>
     </ion-card-content>
@@ -86,15 +86,15 @@
           <div class="transaction-amounts">
             <div *ngIf="transaction.debit > 0" class="amount-row debit-row">
               <span class="amount-label">Débit USD:</span>
-              <span class="amount-value defmaks-amount-negative">{{ formatCurrency(transaction.debit, 'USD') }}</span>
+              <span class="amount-value debit-amount">{{ formatCurrency(transaction.debit, 'USD') }}</span>
             </div>
             <div *ngIf="transaction.credit > 0" class="amount-row credit-row">
               <span class="amount-label">Crédit USD:</span>
-              <span class="amount-value defmaks-amount-positive">{{ formatCurrency(transaction.credit, 'USD') }}</span>
+              <span class="amount-value credit-amount">{{ formatCurrency(transaction.credit, 'USD') }}</span>
             </div>
             <div class="amount-row net-row">
               <span class="amount-label">Net USD:</span>
-              <strong [class]="transaction.montant >= 0 ? 'defmaks-amount-positive' : 'defmaks-amount-negative'">
+              <strong [class]="transaction.montant >= 0 ? 'credit-amount' : 'debit-amount'">
                 {{ formatCurrency(transaction.montant, 'USD') }}
               </strong>
             </div>

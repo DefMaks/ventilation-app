@@ -339,7 +339,7 @@
   }
 }
 
-// Transaction List with Enhanced Suspicious Styling
+// Transaction List with Enhanced Credit/Debit Styling
 .defmaks-accordion {
   margin-top: 16px;
   
@@ -462,6 +462,18 @@
         
         .amount-value {
           font-size: 0.875rem;
+          font-weight: 600;
+        }
+        
+        // Credit amounts - Green
+        .credit-amount {
+          color: var(--ion-color-success);
+          font-weight: 600;
+        }
+        
+        // Debit amounts - Red
+        .debit-amount {
+          color: var(--ion-color-danger);
           font-weight: 600;
         }
         

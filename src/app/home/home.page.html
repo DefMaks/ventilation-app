@@ -55,7 +55,7 @@
         <ion-icon name="swap-horizontal-outline" size="large"></ion-icon>
         <div class="rate-details">
           <h3>Taux de change pour export</h3>
-          <p class="rate-value">1 USD = {{ currentExchangeRate | number:'1.0-0' }} CDF</p>
+          <p class="rate-value">1 USD = {{ formatNumber(currentExchangeRate, 0) }} CDF</p>
           <small class="rate-note">Les données sont affichées en USD, converties en CDF lors de l'export</small>
         </div>
       </div>
@@ -182,8 +182,8 @@
             <div class="summary-stats">
               <span class="transaction-count">{{ summary.count }} transaction(s)</span>
               <div class="amount-display">
-                <strong class="usd-amount defmaks-amount-positive">{{ summary.total | number:'1.2-2' }} USD</strong>
-                <small class="conversion-note">≈ {{ (summary.total * currentExchangeRate) | number:'1.0-0' }} CDF</small>
+                <strong class="usd-amount defmaks-amount-positive">{{ formatCurrency(summary.total, 'USD') }}</strong>
+                <small class="conversion-note">≈ {{ formatCurrency(summary.total * currentExchangeRate, 'CDF') }}</small>
               </div>
             </div>
           </div>
@@ -231,16 +231,16 @@
                 <div class="transaction-amounts">
                   <div *ngIf="t.debit > 0" class="amount-row debit-row">
                     <span class="amount-label">Débit:</span>
-                    <span class="amount-value defmaks-amount-negative">{{ t.debit | number:'1.2-2' }} USD</span>
+                    <span class="amount-value debit-amount">{{ formatCurrency(t.debit, 'USD') }}</span>
                   </div>
                   <div *ngIf="t.credit > 0" class="amount-row credit-row">
                     <span class="amount-label">Crédit:</span>
-                    <span class="amount-value defmaks-amount-positive">{{ t.credit | number:'1.2-2' }} USD</span>
+                    <span class="amount-value credit-amount">{{ formatCurrency(t.credit, 'USD') }}</span>
                   </div>
                   <div class="amount-row net-row">
                     <span class="amount-label">Net:</span>
-                    <strong [class]="t.montant >= 0 ? 'defmaks-amount-positive' : 'defmaks-amount-negative'">
-                      {{ t.montant | number:'1.2-2' }} USD
+                    <strong [class]="t.montant >= 0 ? 'credit-amount' : 'debit-amount'">
+                      {{ formatCurrency(t.montant, 'USD') }}
                     </strong>
                   </div>
                   
@@ -252,15 +252,15 @@
                     </div>
                     <div *ngIf="t.debit > 0" class="amount-row conversion-row">
                       <span class="amount-label">Débit CDF:</span>
-                      <span class="cdf-amount">{{ (t.debit * currentExchangeRate) | number:'1.0-0' }} CDF</span>
+                      <span class="cdf-amount">{{ formatCurrency(t.debit * currentExchangeRate, 'CDF') }}</span>
                     </div>
                     <div *ngIf="t.credit > 0" class="amount-row conversion-row">
                       <span class="amount-label">Crédit CDF:</span>
-                      <span class="cdf-amount">{{ (t.credit * currentExchangeRate) | number:'1.0-0' }} CDF</span>
+                      <span class="cdf-amount">{{ formatCurrency(t.credit * currentExchangeRate, 'CDF') }}</span>
                     </div>
                     <div class="amount-row conversion-row">
                       <span class="amount-label">Net CDF:</span>
-                      <strong class="cdf-amount">{{ (t.montant * currentExchangeRate) | number:'1.0-0' }} CDF</strong>
+                      <strong class="cdf-amount">{{ formatCurrency(t.montant * currentExchangeRate, 'CDF') }}</strong>
                     </div>
                   </div>
                 </div>

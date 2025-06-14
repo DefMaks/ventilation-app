@@ -47,4 +47,12 @@ export class CurrencyModalComponent {
     this.exchangeRate = rate;
     this.validateRate();
   }
+
+  // Format number with English syntax
+  formatNumber(value: number, decimals: number = 2): string {
+    return value.toLocaleString('en-US', { 
+      minimumFractionDigits: decimals, 
+      maximumFractionDigits: decimals 
+    });
+  }
 }
