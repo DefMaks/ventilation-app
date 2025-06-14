@@ -14,33 +14,129 @@
         type="file"
         (change)="onFileSelected($event)"
         accept="application/pdf"
+        #fileInput
       />
+      <ion-button 
+        fill="clear" 
+        size="small" 
+        (click)="clearData()"
+        *ngIf="transactions.length > 0">
+        <ion-icon name="refresh-outline"></ion-icon>
+        Effacer
+      </ion-button>
     </ion-card-content>
   </ion-card>
 
-  <ion-button
-    expand="block"
-    color="success"
-    [disabled]="!transactions.length"
-    (click)="exportToExcel()"
-  >
-    Exporter vers Excel
-  </ion-button>
+  <!-- Processing indicator -->
+  <ion-card *ngIf="isProcessing">
+    <ion-card-content>
+      <ion-progress-bar type="indeterminate"></ion-progress-bar>
+      <p class="ion-text-center ion-margin-top">Traitement du PDF en cours...</p>
+    </ion-card-content>
+  </ion-card>
 
-  <ion-card *ngIf="transactions.length">
+  <!-- Validation errors -->
+  <ion-card *ngIf="validationErrors.length > 0" color="warning">
     <ion-card-header>
-      <ion-card-title>Données extraites</ion-card-title>
+      <ion-card-title>Avertissements</ion-card-title>
     </ion-card-header>
     <ion-card-content>
       <ion-list>
-        <ion-item *ngFor="let t of transactions">
+        <ion-item *ngFor="let error of validationErrors">
+          <ion-icon name="warning-outline" slot="start"></ion-icon>
+          <ion-label>{{ error }}</ion-label>
+        </ion-item>
+      </ion-list>
+    </ion-card-content>
+  </ion-card>
+
+  <!-- Export buttons -->
+  <div *ngIf="transactions.length > 0">
+    <ion-button
+      expand="block"
+      color="success"
+      (click)="exportToExcel()"
+      class="ion-margin-bottom">
+      <ion-icon name="document-outline" slot="start"></ion-icon>
+      Créer Template Excel ONT
+    </ion-button>
+
+    <ion-button
+      expand="block"
+      color="secondary"
+      (click)="exportToExcelLegacy()"
+      class="ion-margin-bottom">
+      <ion-icon name="download-outline" slot="start"></ion-icon>
+      Export Simple (Ancien)
+    </ion-button>
+  </div>
+
+  <!-- Template upload section -->
+  <ion-card *ngIf="transactions.length > 0">
+    <ion-card-header>
+      <ion-card-title>Mettre à jour un template existant</ion-card-title>
+    </ion-card-header>
+    <ion-card-content>
+      <input
+        type="file"
+        (change)="onTemplateFileSelected($event)"
+        accept=".xlsx,.xls"
+        #templateInput
+      />
+      <p class="ion-text-wrap">
+        <small>Sélectionnez un fichier Excel existant pour le mettre à jour avec les données extraites du PDF.</small>
+      </p>
+    </ion-card-content>
+  </ion-card>
+
+  <!-- Extracted data display -->
+  <ion-card *ngIf="transactions.length > 0">
+    <ion-card-header>
+      <ion-card-title>Données extraites ({{ transactions.length }} transactions)</ion-card-title>
+    </ion-card-header>
+    <ion-card-content>
+      <!-- Summary by designation -->
+      <ion-list>
+        <ion-list-header>
+          <ion-label><strong>Résumé par désignation</strong></ion-label>
+        </ion-list-header>
+        <ion-item *ngFor="let summary of getSummaryByDesignation()">
           <ion-label>
-            <h3>{{ t.date }}</h3>
-            <p>{{ t.designation }}</p>
-            <strong>{{ t.montant | number:'1.2-2' }} $</strong>
+            <h3>{{ summary.designation }}</h3>
+            <p>{{ summary.count }} transaction(s)</p>
+            <strong>{{ summary.total | number:'1.2-2' }} FC</strong>
           </ion-label>
         </ion-item>
       </ion-list>
+
+      <!-- Detailed transactions -->
+      <ion-accordion-group>
+        <ion-accordion value="details">
+          <ion-item slot="header">
+            <ion-label>Voir toutes les transactions</ion-label>
+          </ion-item>
+          <div slot="content">
+            <ion-list>
+              <ion-item *ngFor="let t of transactions; let i = index">
+                <ion-label>
+                  <h3>{{ t.date }}</h3>
+                  <p>{{ t.designation }}</p>
+                  <div class="transaction-amounts">
+                    <span *ngIf="t.debit > 0" class="debit">Débit: {{ t.debit | number:'1.2-2' }} FC</span>
+                    <span *ngIf="t.credit > 0" class="credit">Crédit: {{ t.credit | number:'1.2-2' }} FC</span>
+                    <strong [class.negative]="t.montant < 0">
+                      Net: {{ t.montant | number:'1.2-2' }} FC
+                    </strong>
+                  </div>
+                </ion-label>
+                <ion-badge slot="end" [color]="t.montant >= 0 ? 'success' : 'danger'">
+                  {{ i + 1 }}
+                </ion-badge>
+              </ion-item>
+            </ion-list>
+          </div>
+        </ion-accordion>
+      </ion-accordion-group>
     </ion-card-content>
   </ion-card>
 </ion-content>

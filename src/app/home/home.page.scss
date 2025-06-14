@@ -25,3 +25,36 @@
 #container a {
   text-decoration: none;
 }
+
+.transaction-amounts {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 8px;
+}
+
+.debit {
+  color: var(--ion-color-danger);
+  font-size: 0.9em;
+}
+
+.credit {
+  color: var(--ion-color-success);
+  font-size: 0.9em;
+}
+
+.negative {
+  color: var(--ion-color-danger);
+}
+
+ion-progress-bar {
+  margin: 16px 0;
+}
+
+ion-accordion-group {
+  margin-top: 16px;
+}
+
+ion-list-header {
+  padding-left: 0;
+}

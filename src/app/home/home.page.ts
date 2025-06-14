@@ -162,4 +162,22 @@ export class HomePage {
     this.transactions = [];
     this.validationErrors = [];
   }
+
+  getSummaryByDesignation() {
+    const summaryMap = new Map<string, { count: number; total: number }>();
+    
+    this.transactions.forEach(t => {
+      const existing = summaryMap.get(t.designation) || { count: 0, total: 0 };
+      summaryMap.set(t.designation, {
+        count: existing.count + 1,
+        total: existing.total + Math.abs(t.montant)
+      });
+    });
+
+    return Array.from(summaryMap.entries()).map(([designation, data]) => ({
+      designation,
+      count: data.count,
+      total: data.total
+    }));
+  }
 }

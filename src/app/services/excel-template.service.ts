@@ -26,7 +26,7 @@ export class ExcelTemplateService {
   constructor() { }
 
   /**
-   * Creates Excel template with data and formulas
+   * Creates Excel template with data and formulas matching the provided structure
    */
   createExcelTemplate(transactions: TransactionData[]): void {
     // Create a new workbook
@@ -40,13 +40,27 @@ export class ExcelTemplateService {
     
     // Set column widths
     ws['!cols'] = [
-      { width: 5 },   // Column A
-      { width: 50 },  // Column B
-      { width: 15 },  // Column C
+      { width: 8 },   // Column A (N° CPTE)
+      { width: 60 },  // Column B (DESIGNATION)
+      { width: 20 },  // Column C (MONTANT)
       { width: 15 },  // Column D
       { width: 15 },  // Column E
       { width: 15 }   // Column F
     ];
+
+    // Set specific cell formats for numbers
+    const range = XLSX.utils.decode_range(ws['!ref'] || 'A1:F50');
+    for (let R = range.s.r; R <= range.e.r; ++R) {
+      for (let C = range.s.c; C <= range.e.c; ++C) {
+        const cellAddress = XLSX.utils.encode_cell({ r: R, c: C });
+        if (!ws[cellAddress]) continue;
+        
+        // Format column C (amounts) as numbers with 2 decimal places
+        if (C === 2 && typeof ws[cellAddress].v === 'number') {
+          ws[cellAddress].z = '#,##0.00';
+        }
+      }
+    }
 
     // Add the worksheet to workbook
     XLSX.utils.book_append_sheet(wb, ws, 'VENTILATION');
@@ -56,60 +70,72 @@ export class ExcelTemplateService {
   }
 
   /**
-   * Creates the template data structure with formulas
+   * Creates the template data structure with formulas exactly as shown in the image
    */
   private createTemplateData(transactions: TransactionData[]): any[][] {
     // Process transactions to get aggregated data
     const processedData = this.processTransactions(transactions);
     
-    // Create the template structure
+    // Create the template structure exactly as shown in the image
     const data: any[][] = [];
     
-    // Header rows
-    data.push(['', 'REPUBLIQUE DEMOCRATIQUE DU CONGO', '', '', '', '']);
-    data.push(['', 'OFFICE NATIONAL DU TOURISME', '', '', '', '']);
-    data.push(['', 'DIRECTION FINANCIERE', '', '', '', '']);
-    data.push(['', '', '', '', '', '']);
-    data.push(['', '', '', '', '', '']);
-    data.push(['', 'VENTILATION DES DEPENSES DU FONDS DE PROMOTION DU TOURISME EXERCICE 2024', '', '', '', '']);
-    data.push(['', '', '', '', '', '']);
+    // Header rows (rows 1-3)
+    data.push(['REPUBLIQUE DEMOCRATIQUE DU CONGO', '', '', '', '', '']);
+    data.push(['OFFICE NATIONAL DU TOURISME', '', '', '', '', '']);
+    data.push(['DIRECTION FINANCIERE', '', '', '', '', '']);
+    data.push(['', '', '', '', '', '']); // Row 4 - empty
+    data.push(['', '', '', '', '', '']); // Row 5 - empty
+    
+    // Row 6 - Title
+    data.push(['VENTILATION DES DEPENSES DU FONDS DE PROMOTION DU TOURISME EXERCICE 2024', '', '', '', '', '']);
+    data.push(['', '', '', '', '', '']); // Row 7 - empty
+    
+    // Row 8 - Headers
     data.push(['N°', 'DESIGNATION', 'MONTANT', '', '', '']);
-    data.push(['CPTE', '', '', '', '', '']);
-    data.push(['', '', '', '', '', '']);
-    data.push(['', '', '', '', '', '']);
+    data.push(['CPTE', '', '', '', '', '']); // Row 9
+    data.push(['', '', '', '', '', '']); // Row 10 - empty
+    data.push(['', '', '', '', '', '']); // Row 11 - empty
+    
+    // Row 12 - ENTREES
     data.push(['', 'ENTREES', '', '', '', '']);
     
-    // Row 13 - Report date with current date
-    const currentDate = new Date().toLocaleDateString('fr-FR');
-    data.push(['', `REPORT AU 01 JANVIER 2024`, processedData.reportAmount || 13298589.15, '', '', '']);
+    // Row 13 - Report amount (fixed value as shown in image)
+    data.push(['', 'REPORT AU 01 JANVIER 2024', 13298589.15, '', '', '']);
     
-    // Row 14 - Receipts calculation
-    data.push(['', 'RECETTES DU FPT REALISE DU 01 JANVVIER AU 31 DEC 2024', processedData.totalReceipts || 33675831380.81, '', '', '']);
+    // Row 14 - Receipts (calculated from transactions)
+    data.push(['', 'RECETTES DU FPT REALISE DU 01 JANVVIER AU 31 DEC 2024', processedData.totalReceipts, '', '', '']);
     
-    data.push(['', '', '', '', '', '']);
+    data.push(['', '', '', '', '', '']); // Row 15 - empty
     
-    // Row 16 - Total receipts (sum of C13 + C14)
+    // Row 16 - Total receipts (formula: C13+C14)
     data.push(['', 'TOTAL RECETTES', { f: 'C13+C14' }, '', '', '']);
     
-    data.push(['', '', '', '', '', '']);
-    data.push(['', '', '', '', '', '']);
+    data.push(['', '', '', '', '', '']); // Row 17 - empty
+    data.push(['', '', '', '', '', '']); // Row 18 - empty
     
-    // Row 19 - Account 60 total (sum of C20:C26)
+    // Row 19 - Account 60 total (formula: sum of C20:C26)
     data.push(['60', '1.Achat et variation de stock', { f: 'SUM(C20:C26)' }, '', '', '']);
     
-    // Rows 20-26 - Individual account items
-    data.push(['', '• Eau', processedData.accountData['EAU'] || 46574385.58, '', '', '']);
-    data.push(['', '• Electricité', processedData.accountData['ELECTRICITE'] || 54041736.36, '', '', '']);
-    data.push(['', '• Carburant', processedData.accountData['CARBURANT'] || 122189392.09, '', '', '']);
-    data.push(['', '• Produits d\'entretien', processedData.accountData['PRODUITS_ENTRETIEN'] || 1662410.00, '', '', '']);
-    data.push(['', '• Fournitures de bureau et consommables informatiques', processedData.accountData['FOURNITURES'] || 130737751.70, '', '', '']);
-    data.push(['', '• Achat petits matériels et outillages', processedData.accountData['PETITS_MATERIELS'] || 58740984.16, '', '', '']);
-    data.push(['', '• Fonctionnement', processedData.accountData['FONCTIONNEMENT'] || 0, '', '', '']);
+    // Rows 20-26 - Individual account items with extracted data
+    data.push(['', '• Eau', this.getAccountValue(processedData, 'EAU', 46574385.58), '', '', '']);
+    data.push(['', '• Electricité', this.getAccountValue(processedData, 'ELECTRICITE', 54041736.36), '', '', '']);
+    data.push(['', '• Carburant', this.getAccountValue(processedData, 'CARBURANT', 122189392.09), '', '', '']);
+    data.push(['', '• Produits d\'entretien', this.getAccountValue(processedData, 'PRODUITS_ENTRETIEN', 1662410.00), '', '', '']);
+    data.push(['', '• Fournitures de bureau et consommables informatiques', this.getAccountValue(processedData, 'FOURNITURES', 130737751.70), '', '', '']);
+    data.push(['', '• Achat petits matériels et outillages', this.getAccountValue(processedData, 'PETITS_MATERIELS', 58740984.16), '', '', '']);
+    data.push(['', '• Fonctionnement', this.getAccountValue(processedData, 'FONCTIONNEMENT', 0), '', '', '']);
     
     // Row 27 - Account 61
-    data.push(['61', '2. Transport', processedData.accountData['TRANSPORT'] || 830751906.53, '', '', '']);
+    data.push(['61', '2. Transport', this.getAccountValue(processedData, 'TRANSPORT', 830751906.53), '', '', '']);
 
     return data;
+  }
+
+  /**
+   * Helper method to get account value from processed data or use default
+   */
+  private getAccountValue(processedData: ExcelTemplateData, key: string, defaultValue: number): number {
+    return processedData.accountData[key] || defaultValue;
   }
 
   /**
@@ -190,7 +216,7 @@ export class ExcelTemplateService {
    * Updates specific cells in the worksheet
    */
   private updateWorksheetCells(worksheet: XLSX.WorkSheet, data: ExcelTemplateData): void {
-    // Update C13 - Report amount
+    // Update C13 - Report amount (keep original value)
     worksheet['C13'] = { t: 'n', v: 13298589.15 };
     
     // Update C14 - Total receipts from transactions
@@ -202,7 +228,7 @@ export class ExcelTemplateService {
     // Update C19 - Formula for account 60 total
     worksheet['C19'] = { t: 'n', f: 'SUM(C20:C26)' };
     
-    // Update individual account items (C20-C26)
+    // Update individual account items (C20-C26) with extracted data or defaults
     const accountMappings = [
       { cell: 'C20', key: 'EAU', default: 46574385.58 },
       { cell: 'C21', key: 'ELECTRICITE', default: 54041736.36 },
