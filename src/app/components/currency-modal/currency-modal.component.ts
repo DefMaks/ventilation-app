@@ -49,7 +49,7 @@ export class CurrencyModalComponent {
   }
 
   // Format number with English syntax
-  formatNumber(value: number, decimals: number = 2): string {
+  public formatNumber(value: number, decimals: number = 2): string {
     return value.toLocaleString('en-US', { 
       minimumFractionDigits: decimals, 
       maximumFractionDigits: decimals 

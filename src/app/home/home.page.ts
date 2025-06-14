@@ -358,7 +358,7 @@ export class HomePage {
   /**
    * Format currency with English number syntax
    */
-  formatCurrency(amount: number, currency: string = 'USD'): string {
+  public formatCurrency(amount: number, currency: string = 'USD'): string {
     if (currency === 'CDF') {
       return `${amount.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })} ${currency}`;
     } else {
@@ -369,7 +369,7 @@ export class HomePage {
   /**
    * Format number with English syntax
    */
-  formatNumber(value: number, decimals: number = 2): string {
+  public formatNumber(value: number, decimals: number = 2): string {
     return value.toLocaleString('en-US', { 
       minimumFractionDigits: decimals, 
       maximumFractionDigits: decimals 
