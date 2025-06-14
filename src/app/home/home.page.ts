@@ -99,29 +99,26 @@ export class HomePage {
       const tableStructure = await this.pdfTableParser.analyzeTableStructure(page);
       console.log('Table structure detected:', tableStructure);
       
-      // Extract transactions from table
-      const transactions = this.pdfTableParser.extractTransactionsFromTable(tableStructure);
-      console.log('Transactions from table parser:', transactions);
+      // Try primary extraction method
+      let transactions = this.pdfTableParser.extractTransactionsFromTable(tableStructure);
+      console.log('Transactions from primary table parser:', transactions);
       
-      // Filter for target designations
-      const targetDesignations = [
-        'PYT FPT',
-        'TRSF',
-        'PMT TOURISME',
-        'FPT INVESTISSEMENT',
-        'ONT FICHE STATISTIQUES',
-        'APPUI ADM DU TOURISME',
-        'ICCN',
-        'SITE TOURISTIQUE',
-        'COMITE DE SUIVI ET VALIDATION',
-        'ONT CONTROLE ET INSPECTION DES UNITES TOURISTIQUES',
-      ];
+      // If no transactions found, try alternative regex method on structured text
+      if (transactions.length === 0) {
+        console.log('Primary method failed, trying regex on structured text...');
+        transactions = this.pdfTableParser.extractTransactionsWithRegexOnStructuredText(tableStructure);
+        console.log('Transactions from regex on structured text:', transactions);
+      }
       
-      return transactions.filter(transaction => 
-        targetDesignations.some(target => 
-          transaction.designation.toUpperCase().includes(target.toUpperCase())
-        )
-      );
+      // If still no transactions, show debug info
+      if (transactions.length === 0) {
+        console.warn('No transactions found with table parser. Debug info:');
+        console.log('Raw text:', tableStructure.rawText);
+        console.log('Number of rows:', tableStructure.rows.length);
+        console.log('First 5 rows:', tableStructure.rows.slice(0, 5).map(r => r.cells.map(c => c.text)));
+      }
+      
+      return transactions;
       
     } catch (error) {
       console.warn('Table parser failed, falling back to regex:', error);
@@ -156,7 +153,7 @@ export class HomePage {
     // Enhanced regex to capture amounts with commas and decimals
     // Look for patterns like: date designation amount1 amount2 (where amount2 might be balance)
     const transactionRegex = new RegExp(
-      `(\\d{2}-\\d{2}-\\d{4}).*?(${designationPattern}).*?` +
+      `(\\d{2}[-\/]\\d{2}[-\/]\\d{4}).*?(${designationPattern}).*?` +
         `([\\d,]+\\.\\d{2})(?:\\s+([\\d,]+\\.\\d{2}))?`, // Two amounts: debit/credit and possibly balance
       'gi'
     );
