@@ -63,120 +63,57 @@ export class HomePage {
         'COMITE DE SUIVI ET VALIDATION',
         'ONT CONTROLE ET INSPECTION DES UNITES TOURISTIQUES',
       ];
+      const designationPattern = targetDesignations.join('|');
 
       for (let i = 1; i <= pdf.numPages; i++) {
         const page = await pdf.getPage(i);
         const content = await page.getTextContent();
-        
-        // Get text with position information
-        const textItems = content.items as any[];
-        console.log(`Page ${i} - Found ${textItems.length} text items`);
-        
-        // Sort items by Y position (top to bottom) then X position (left to right)
-        textItems.sort((a, b) => {
-          const yDiff = b.transform[5] - a.transform[5]; // Y coordinate (inverted)
-          if (Math.abs(yDiff) > 5) return yDiff; // Different lines
-          return a.transform[4] - b.transform[4]; // Same line, sort by X
-        });
+        const text = content.items.map((item: any) => item.str).join(' ');
 
-        // Group items by line (similar Y coordinates)
-        const lines: any[][] = [];
-        let currentLine: any[] = [];
-        let lastY = -1;
+        // Enhanced regex to capture amounts with commas and decimals
+        // Look for patterns like: date designation amount1 amount2 (where amount2 might be balance)
+        const transactionRegex = new RegExp(
+          `(\\d{2}-\\d{2}-\\d{4}).*?(${designationPattern}).*?` +
+            `([\\d,]+\\.\\d{2})(?:\\s+([\\d,]+\\.\\d{2}))?`, // Two amounts: debit/credit and possibly balance
+          'gi'
+        );
 
-        textItems.forEach(item => {
-          const y = Math.round(item.transform[5]);
-          if (lastY === -1 || Math.abs(y - lastY) <= 5) {
-            // Same line
-            currentLine.push(item);
-          } else {
-            // New line
-            if (currentLine.length > 0) {
-              lines.push([...currentLine]);
-            }
-            currentLine = [item];
-          }
-          lastY = y;
-        });
-        
-        if (currentLine.length > 0) {
-          lines.push(currentLine);
-        }
-
-        console.log(`Page ${i} - Grouped into ${lines.length} lines`);
-
-        // Process each line
-        for (const lineItems of lines) {
-          const lineText = lineItems.map(item => item.str).join(' ').trim();
+        let match;
+        while ((match = transactionRegex.exec(text)) !== null) {
+          const amount1 = this.parseAmount(match[3]);
+          const amount2 = match[4] ? this.parseAmount(match[4]) : 0;
           
-          // Skip empty lines
-          if (!lineText) continue;
-
-          console.log(`Processing line: "${lineText}"`);
-
-          // Check if this line contains a date pattern (transaction line)
-          const dateMatch = lineText.match(/(\d{2}-\d{2}-\d{4})/);
-          if (!dateMatch) continue;
-
-          const transactionDate = dateMatch[1];
-          console.log(`Found date: ${transactionDate}`);
-
-          // Check if narrative contains any of our target designations
-          const matchedDesignation = targetDesignations.find(designation => 
-            lineText.toUpperCase().includes(designation.toUpperCase())
-          );
-
-          if (!matchedDesignation) {
-            console.log(`No matching designation found in: ${lineText}`);
-            continue;
-          }
-
-          console.log(`Found matching designation: ${matchedDesignation}`);
-
-          // Try to extract amounts from the line
-          // Look for patterns like "34,736.28" or "12,675.00"
-          const amountPattern = /(\d{1,3}(?:,\d{3})*\.\d{2})/g;
-          const amounts: number[] = [];
-          let match;
+          // Logic to determine if it's a debit or credit
+          // In bank statements, typically:
+          // - If there's only one amount, check context or assume it's a debit (expense)
+          // - If there are two amounts, the first is usually the transaction amount, second is balance
           
-          while ((match = amountPattern.exec(lineText)) !== null) {
-            const amount = this.parseAmount(match[1]);
-            amounts.push(amount);
-            console.log(`Found amount: ${match[1]} -> ${amount}`);
-          }
-
-          // Determine debit/credit based on context or position
           let debit = 0;
           let credit = 0;
-
-          if (amounts.length === 1) {
-            // Single amount - need to determine if it's debit or credit
-            // For now, assume credits for TRSF operations and debits for payments
-            if (matchedDesignation.includes('TRSF') || matchedDesignation.includes('DEPOT')) {
-              credit = amounts[0];
-            } else {
-              debit = amounts[0];
-            }
-          } else if (amounts.length >= 2) {
-            // Multiple amounts - first might be debit, second credit (or vice versa)
-            // This needs refinement based on actual PDF structure
-            debit = amounts[0];
-            credit = amounts[1];
+          let montant = 0;
+          
+          // For now, let's assume single amounts are debits (expenses) since this is an expense tracking system
+          // You may need to adjust this logic based on your specific PDF format
+          if (amount2 === 0) {
+            // Single amount - assume it's a debit (expense)
+            debit = amount1;
+            credit = 0;
+            montant = -amount1; // Negative for debit
+          } else {
+            // Two amounts - need to determine which is debit/credit based on context
+            // This might need adjustment based on your PDF format
+            debit = amount1;
+            credit = 0;
+            montant = -amount1; // Negative for debit
           }
 
-          if (debit > 0 || credit > 0) {
-            const montant = credit > 0 ? credit : -debit;
-
-            result.push({
-              date: transactionDate,
-              designation: matchedDesignation,
-              debit: debit,
-              credit: credit,
-              montant: montant,
-            });
-
-            console.log(`Added transaction: ${transactionDate} - ${matchedDesignation} - Debit: ${debit} - Credit: ${credit}`);
-          }
+          result.push({
+            date: match[1],
+            designation: match[2],
+            debit: debit,
+            credit: credit,
+            montant: montant,
+          });
         }
       }
 
