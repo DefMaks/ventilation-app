@@ -78,7 +78,7 @@ export class ExcelTemplateService {
     data.push(['', '', '', '', '', '']);
     data.push(['VENTILATION DES DEPENSES DU FONDS DE PROMOTION DU TOURISME EXERCICE 2024', '', '', '', '', '']);
     data.push(['', '', '', '', '', '']);
-    data.push(['N°', 'DESIGNATION', 'MONTANT (CDF)', '', '', '']); // Updated to show CDF
+    data.push(['N°', 'DESIGNATION', 'MONTANT', '', '', '']); // Removed (CDF) from header
     data.push(['CPTE', '', '', '', '', '']);
     data.push(['', '', '', '', '', '']);
     data.push(['', '', '', '', '', '']);
@@ -192,7 +192,7 @@ export class ExcelTemplateService {
   }
 
   /**
-   * Format worksheet cells for better appearance with CDF currency format
+   * Format worksheet cells for better appearance without currency display
    */
   private formatWorksheet(ws: XLSX.WorkSheet): void {
     const range = XLSX.utils.decode_range(ws['!ref'] || 'A1:F85');
@@ -202,9 +202,9 @@ export class ExcelTemplateService {
         const cellAddress = XLSX.utils.encode_cell({ r: R, c: C });
         if (!ws[cellAddress]) continue;
         
-        // Format column C (amounts) as numbers with 2 decimal places and CDF currency
+        // Format column C (amounts) as numbers with 2 decimal places WITHOUT currency
         if (C === 2 && typeof ws[cellAddress].v === 'number') {
-          ws[cellAddress].z = '#,##0.00 "CDF"'; // Updated to show CDF currency
+          ws[cellAddress].z = '#,##0.00'; // Removed "CDF" currency display
         }
         
         // Bold headers, account numbers, and signature titles
@@ -525,7 +525,7 @@ export class ExcelTemplateService {
   }
 
   /**
-   * Validates extracted data with CDF currency references
+   * Validates extracted data
    */
   validateData(transactions: TransactionData[]): { isValid: boolean; errors: string[] } {
     const errors: string[] = [];
@@ -538,7 +538,7 @@ export class ExcelTemplateService {
     // Check for reasonable amounts
     transactions.forEach((transaction, index) => {
       if (Math.abs(transaction.montant) > 10000000000) { // 10 billion limit
-        errors.push(`Montant suspect à la ligne ${index + 1}: ${transaction.montant.toLocaleString()} CDF`); // Updated to CDF
+        errors.push(`Montant suspect à la ligne ${index + 1}: ${transaction.montant.toLocaleString()}`);
       }
       
       if (!transaction.date || !transaction.designation) {
