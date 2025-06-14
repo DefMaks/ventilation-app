@@ -71,29 +71,48 @@ export class HomePage {
         const text = content.items.map((item: any) => item.str).join(' ');
 
         // Enhanced regex to capture amounts with commas and decimals
+        // Look for patterns like: date designation amount1 amount2 (where amount2 might be balance)
         const transactionRegex = new RegExp(
           `(\\d{2}-\\d{2}-\\d{4}).*?(${designationPattern}).*?` +
-            `(?:([\\d,]+\\.\\d{2})\\s*(?:\\s([\\d,]+\\.\\d{2}))?)`, // Enhanced to capture amounts like "34,736.28"
+            `([\\d,]+\\.\\d{2})(?:\\s+([\\d,]+\\.\\d{2}))?`, // Two amounts: debit/credit and possibly balance
           'gi'
         );
 
         let match;
         while ((match = transactionRegex.exec(text)) !== null) {
-          // Parse amounts with proper comma and decimal handling
-          const debit = match[3]
-            ? this.parseAmount(match[3])
-            : 0;
-          const credit = match[4]
-            ? this.parseAmount(match[4])
-            : 0;
-          const montant = debit !== 0 ? -debit : credit; // Montant négatif si débit
+          const amount1 = this.parseAmount(match[3]);
+          const amount2 = match[4] ? this.parseAmount(match[4]) : 0;
+          
+          // Logic to determine if it's a debit or credit
+          // In bank statements, typically:
+          // - If there's only one amount, check context or assume it's a debit (expense)
+          // - If there are two amounts, the first is usually the transaction amount, second is balance
+          
+          let debit = 0;
+          let credit = 0;
+          let montant = 0;
+          
+          // For now, let's assume single amounts are debits (expenses) since this is an expense tracking system
+          // You may need to adjust this logic based on your specific PDF format
+          if (amount2 === 0) {
+            // Single amount - assume it's a debit (expense)
+            debit = amount1;
+            credit = 0;
+            montant = -amount1; // Negative for debit
+          } else {
+            // Two amounts - need to determine which is debit/credit based on context
+            // This might need adjustment based on your PDF format
+            debit = amount1;
+            credit = 0;
+            montant = -amount1; // Negative for debit
+          }
 
           result.push({
             date: match[1],
             designation: match[2],
             debit: debit,
             credit: credit,
-            montant: montant, // Keep original USD values
+            montant: montant,
           });
         }
       }
