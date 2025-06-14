@@ -67,66 +67,121 @@ export class HomePage {
       for (let i = 1; i <= pdf.numPages; i++) {
         const page = await pdf.getPage(i);
         const content = await page.getTextContent();
-        const text = content.items.map((item: any) => item.str).join(' ');
+        
+        // Get text with position information
+        const textItems = content.items.map((item: any) => ({
+          str: item.str,
+          x: item.transform[4],
+          y: item.transform[5]
+        }));
 
-        // Split text into lines for column-based parsing
-        const lines = text.split('\n');
-        let inTransactionTable = false;
+        console.log(`Page ${i} - Found ${textItems.length} text items`);
 
-        for (const line of lines) {
-          const trimmedLine = line.trim();
+        // Group text items by Y position (rows) with tolerance
+        const rows = new Map<number, any[]>();
+        const yTolerance = 5;
+
+        textItems.forEach(item => {
+          let foundRow = false;
+          for (const [y, items] of rows.entries()) {
+            if (Math.abs(y - item.y) <= yTolerance) {
+              items.push(item);
+              foundRow = true;
+              break;
+            }
+          }
+          if (!foundRow) {
+            rows.set(item.y, [item]);
+          }
+        });
+
+        // Sort rows by Y position (top to bottom)
+        const sortedRows = Array.from(rows.entries())
+          .sort((a, b) => b[0] - a[0]) // Descending Y (top to bottom)
+          .map(([y, items]) => items.sort((a, b) => a.x - b.x)); // Sort items in row by X position
+
+        console.log(`Page ${i} - Found ${sortedRows.length} rows`);
+
+        // Process each row
+        for (const rowItems of sortedRows) {
+          const rowText = rowItems.map(item => item.str).join(' ').trim();
           
-          // Skip empty lines
-          if (!trimmedLine) continue;
+          if (!rowText) continue;
 
-          // Detect if we're in the transaction table area
-          if (trimmedLine.includes('Transaction Date') || trimmedLine.includes('Value Date') || trimmedLine.includes('Narrative')) {
-            inTransactionTable = true;
+          console.log(`Processing row: "${rowText}"`);
+
+          // Check if this row contains a date pattern (transaction row)
+          const dateMatch = rowText.match(/(\d{2}-\d{2}-\d{4})/);
+          if (!dateMatch) continue;
+
+          const transactionDate = dateMatch[1];
+          console.log(`Found date: ${transactionDate}`);
+
+          // Check if narrative contains any target designations
+          const matchedDesignation = targetDesignations.find(designation => 
+            rowText.toUpperCase().includes(designation.toUpperCase())
+          );
+
+          if (!matchedDesignation) {
+            console.log(`No matching designation found in: "${rowText}"`);
             continue;
           }
 
-          // If we're in the transaction table, try to parse the line
-          if (inTransactionTable) {
-            // Split by multiple spaces or tabs to get columns
-            const columns = trimmedLine.split(/\s{2,}|\t+/).filter(col => col.trim().length > 0);
+          console.log(`Found matching designation: ${matchedDesignation}`);
+
+          // Try to extract amounts from the row
+          // Look for decimal numbers (potential amounts)
+          const amountMatches = rowText.match(/(\d{1,3}(?:,\d{3})*(?:\.\d{2})?)/g);
+          
+          if (!amountMatches || amountMatches.length === 0) {
+            console.log(`No amounts found in row: "${rowText}"`);
+            continue;
+          }
+
+          console.log(`Found potential amounts: ${amountMatches.join(', ')}`);
+
+          // Parse amounts - assume last 1-2 numbers are debit/credit
+          let debit = 0;
+          let credit = 0;
+
+          if (amountMatches.length >= 2) {
+            // If we have 2+ amounts, assume last two are debit and credit
+            const amount1 = this.parseAmount(amountMatches[amountMatches.length - 2]);
+            const amount2 = this.parseAmount(amountMatches[amountMatches.length - 1]);
             
-            // Expected columns: [Transaction Date, Value Date, Narrative, Debit, Credit, Balance?]
-            if (columns.length >= 5) {
-              const transactionDate = columns[0];
-              const valueDate = columns[1];
-              const narrative = columns[2];
-              const debitColumn = columns[3];
-              const creditColumn = columns[4];
-              
-              // Check if this is a valid transaction line (starts with date)
-              if (transactionDate.match(/^\d{2}-\d{2}-\d{4}$/)) {
-                
-                // Check if narrative contains any of our target designations
-                const matchedDesignation = targetDesignations.find(designation => 
-                  narrative.toUpperCase().includes(designation.toUpperCase())
-                );
-
-                if (matchedDesignation) {
-                  // Parse amounts - empty cells become 0.00
-                  const debit = debitColumn && debitColumn.trim() !== '' ? this.parseAmount(debitColumn) : 0;
-                  const credit = creditColumn && creditColumn.trim() !== '' ? this.parseAmount(creditColumn) : 0;
-                  
-                  // Calculate net amount (positive for credits, negative for debits)
-                  const montant = credit > 0 ? credit : -debit;
-
-                  result.push({
-                    date: transactionDate,
-                    designation: matchedDesignation,
-                    debit: debit,
-                    credit: credit,
-                    montant: montant,
-                  });
-
-                  console.log(`Found transaction: ${transactionDate} - ${matchedDesignation} - Debit: ${debit} - Credit: ${credit}`);
-                }
-              }
+            // Determine which is debit vs credit based on context or position
+            // For now, assume first is debit, second is credit
+            debit = amount1;
+            credit = amount2;
+          } else if (amountMatches.length === 1) {
+            // Single amount - need to determine if it's debit or credit
+            const amount = this.parseAmount(amountMatches[0]);
+            
+            // Check position in text or context clues
+            const amountIndex = rowText.indexOf(amountMatches[0]);
+            const beforeAmount = rowText.substring(0, amountIndex).toLowerCase();
+            const afterAmount = rowText.substring(amountIndex + amountMatches[0].length).toLowerCase();
+            
+            // Simple heuristic: if it appears in the latter part, it might be credit
+            if (amountIndex > rowText.length * 0.7) {
+              credit = amount;
+            } else {
+              debit = amount;
             }
           }
+
+          // Calculate net amount
+          const montant = credit > 0 ? credit : -debit;
+
+          result.push({
+            date: transactionDate,
+            designation: matchedDesignation,
+            debit: debit,
+            credit: credit,
+            montant: montant,
+          });
+
+          console.log(`Added transaction: ${transactionDate} - ${matchedDesignation} - Debit: ${debit} - Credit: ${credit} - Net: ${montant}`);
         }
       }
 
