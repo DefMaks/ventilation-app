@@ -38,7 +38,7 @@ export class PdfTableParserService {
     console.log('🔍 Raw text items found:', textItems.length);
     
     // Log first few items to see what we're working with
-    textItems.slice(0, 10).forEach((item, index) => {
+    textItems.slice(0, 10).forEach((item: any, index: number) => {
       console.log(`Item ${index}: "${item.str}" at (${item.transform[4]}, ${item.transform[5]})`);
     });
 
