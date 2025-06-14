@@ -78,7 +78,7 @@ export class ExcelTemplateService {
     data.push(['', '', '', '', '', '']);
     data.push(['VENTILATION DES DEPENSES DU FONDS DE PROMOTION DU TOURISME EXERCICE 2024', '', '', '', '', '']);
     data.push(['', '', '', '', '', '']);
-    data.push(['N°', 'DESIGNATION', 'MONTANT', '', '', '']);
+    data.push(['N°', 'DESIGNATION', 'MONTANT (CDF)', '', '', '']); // Updated to show CDF
     data.push(['CPTE', '', '', '', '', '']);
     data.push(['', '', '', '', '', '']);
     data.push(['', '', '', '', '', '']);
@@ -192,7 +192,7 @@ export class ExcelTemplateService {
   }
 
   /**
-   * Format worksheet cells for better appearance
+   * Format worksheet cells for better appearance with CDF currency format
    */
   private formatWorksheet(ws: XLSX.WorkSheet): void {
     const range = XLSX.utils.decode_range(ws['!ref'] || 'A1:F85');
@@ -202,9 +202,9 @@ export class ExcelTemplateService {
         const cellAddress = XLSX.utils.encode_cell({ r: R, c: C });
         if (!ws[cellAddress]) continue;
         
-        // Format column C (amounts) as numbers with 2 decimal places
+        // Format column C (amounts) as numbers with 2 decimal places and CDF currency
         if (C === 2 && typeof ws[cellAddress].v === 'number') {
-          ws[cellAddress].z = '#,##0.00';
+          ws[cellAddress].z = '#,##0.00 "CDF"'; // Updated to show CDF currency
         }
         
         // Bold headers, account numbers, and signature titles
@@ -525,7 +525,7 @@ export class ExcelTemplateService {
   }
 
   /**
-   * Validates extracted data
+   * Validates extracted data with CDF currency references
    */
   validateData(transactions: TransactionData[]): { isValid: boolean; errors: string[] } {
     const errors: string[] = [];
@@ -538,7 +538,7 @@ export class ExcelTemplateService {
     // Check for reasonable amounts
     transactions.forEach((transaction, index) => {
       if (Math.abs(transaction.montant) > 10000000000) { // 10 billion limit
-        errors.push(`Montant suspect à la ligne ${index + 1}: ${transaction.montant.toLocaleString()} FC`);
+        errors.push(`Montant suspect à la ligne ${index + 1}: ${transaction.montant.toLocaleString()} CDF`); // Updated to CDF
       }
       
       if (!transaction.date || !transaction.designation) {
