@@ -70,7 +70,7 @@ export class HomePage {
         const content = await page.getTextContent();
         const text = content.items.map((item: any) => item.str).join(' ');
         if(i == 0){
-          alert('line '+i,content);
+          alert('line ',content);
         }
         // Enhanced regex to capture amounts with commas and decimals
         // Look for patterns like: date designation amount1 amount2 (where amount2 might be balance)
