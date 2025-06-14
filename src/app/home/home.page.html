@@ -36,6 +36,22 @@
         </div>
       </div>
       
+      <!-- Parser Method Toggle -->
+      <div class="parser-toggle">
+        <ion-item class="toggle-item">
+          <ion-label>
+            <h3>Méthode d'analyse avancée</h3>
+            <p>Utilise l'analyse de structure de tableau (recommandé)</p>
+          </ion-label>
+          <ion-toggle 
+            [(ngModel)]="useTableParser" 
+            (ionChange)="toggleParsingMethod()"
+            color="success"
+            slot="end">
+          </ion-toggle>
+        </ion-item>
+      </div>
+      
       <ion-button 
         fill="clear" 
         size="small" 
@@ -77,7 +93,9 @@
         <ion-spinner name="crescent" class="defmaks-spinner"></ion-spinner>
         <div class="processing-text">
           <h3 class="defmaks-title">Traitement en cours...</h3>
-          <p class="defmaks-body">Extraction des données du PDF</p>
+          <p class="defmaks-body">
+            {{ useTableParser ? 'Analyse de la structure du tableau' : 'Extraction des données du PDF' }}
+          </p>
         </div>
       </div>
       <ion-progress-bar type="indeterminate" class="defmaks-progress"></ion-progress-bar>
@@ -168,6 +186,10 @@
       <ion-card-title class="defmaks-title">
         <ion-icon name="analytics-outline" color="primary"></ion-icon>
         Résumé des données ({{ transactions.length }} transactions en USD)
+        <ion-chip color="{{ useTableParser ? 'success' : 'warning' }}" class="parser-indicator">
+          <ion-icon name="{{ useTableParser ? 'grid-outline' : 'text-outline' }}"></ion-icon>
+          <ion-label>{{ useTableParser ? 'Analyse tableau' : 'Analyse regex' }}</ion-label>
+        </ion-chip>
       </ion-card-title>
     </ion-card-header>
     <ion-card-content>

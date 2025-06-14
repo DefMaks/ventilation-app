@@ -5,6 +5,7 @@ import * as pdfjsLib from 'pdfjs-dist';
 import { getDocument, GlobalWorkerOptions } from 'pdfjs-dist';
 import { ExcelTemplateService, TransactionData } from '../services/excel-template.service';
 import { CurrencyService } from '../services/currency.service';
+import { PdfTableParserService } from '../services/pdf-table-parser.service';
 import { CurrencyModalComponent } from '../components/currency-modal/currency-modal.component';
 import { TransactionQuickviewComponent } from '../components/transaction-quickview/transaction-quickview.component';
 
@@ -24,10 +25,12 @@ export class HomePage {
   validationErrors: string[] = [];
   currentExchangeRate: number = 2800;
   usdAmounts: TransactionData[] = []; // Store original USD amounts
+  useTableParser: boolean = true; // Toggle between table parser and regex
 
   constructor(
     private excelTemplateService: ExcelTemplateService,
     private currencyService: CurrencyService,
+    private pdfTableParser: PdfTableParserService,
     private modalController: ModalController
   ) {
     // Load stored exchange rate on initialization
@@ -50,70 +53,17 @@ export class HomePage {
       const pdf = await getDocument({ data: arrayBuffer }).promise;
       const result: TransactionData[] = [];
 
-      // Pattern optimisé pour vos besoins
-      const targetDesignations = [
-        'PYT FPT',
-        'TRSF',
-        'PMT TOURISME',
-        'FPT INVESTISSEMENT',
-        'ONT FICHE STATISTIQUES',
-        'APPUI ADM DU TOURISME',
-        'ICCN',
-        'SITE TOURISTIQUE',
-        'COMITE DE SUIVI ET VALIDATION',
-        'ONT CONTROLE ET INSPECTION DES UNITES TOURISTIQUES',
-      ];
-      const designationPattern = targetDesignations.join('|');
-
       for (let i = 1; i <= pdf.numPages; i++) {
         const page = await pdf.getPage(i);
-        const content = await page.getTextContent();
-        const text = content.items.map((item: any) => item.str).join(' ');
         
-        // Enhanced regex to capture amounts with commas and decimals
-        // Look for patterns like: date designation amount1 amount2 (where amount2 might be balance)
-        const transactionRegex = new RegExp(
-          `(\\d{2}-\\d{2}-\\d{4}).*?(${designationPattern}).*?` +
-            `([\\d,]+\\.\\d{2})(?:\\s+([\\d,]+\\.\\d{2}))?`, // Two amounts: debit/credit and possibly balance
-          'gi'
-        );
-
-        let match;
-        while ((match = transactionRegex.exec(text)) !== null) {
-          const amount1 = this.parseAmount(match[3]);
-          const amount2 = match[4] ? this.parseAmount(match[4]) : 0;
-          
-          // Logic to determine if it's a debit or credit
-          // In bank statements, typically:
-          // - If there's only one amount, check context or assume it's a debit (expense)
-          // - If there are two amounts, the first is usually the transaction amount, second is balance
-          
-          let debit = 0;
-          let credit = 0;
-          let montant = 0;
-          
-          // For now, let's assume single amounts are debits (expenses) since this is an expense tracking system
-          // You may need to adjust this logic based on your specific PDF format
-          if (amount2 === 0) {
-            // Single amount - assume it's a debit (expense)
-            debit = amount1;
-            credit = 0;
-            montant = -amount1; // Negative for debit
-          } else {
-            // Two amounts - need to determine which is debit/credit based on context
-            // This might need adjustment based on your PDF format
-            debit = amount1;
-            credit = 0;
-            montant = -amount1; // Negative for debit
-          }
-
-          result.push({
-            date: match[1],
-            designation: match[2],
-            debit: debit,
-            credit: credit,
-            montant: montant,
-          });
+        if (this.useTableParser) {
+          // Use the new table parser
+          const transactions = await this.extractTransactionsWithTableParser(page);
+          result.push(...transactions);
+        } else {
+          // Use the original regex method
+          const transactions = await this.extractTransactionsWithRegex(page);
+          result.push(...transactions);
         }
       }
 
@@ -136,6 +86,121 @@ export class HomePage {
     } finally {
       this.isProcessing = false;
     }
+  }
+
+  /**
+   * Extract transactions using the new table parser
+   */
+  private async extractTransactionsWithTableParser(page: any): Promise<TransactionData[]> {
+    try {
+      console.log('Using table parser for page extraction...');
+      
+      // Analyze table structure
+      const tableStructure = await this.pdfTableParser.analyzeTableStructure(page);
+      console.log('Table structure detected:', tableStructure);
+      
+      // Extract transactions from table
+      const transactions = this.pdfTableParser.extractTransactionsFromTable(tableStructure);
+      console.log('Transactions from table parser:', transactions);
+      
+      // Filter for target designations
+      const targetDesignations = [
+        'PYT FPT',
+        'TRSF',
+        'PMT TOURISME',
+        'FPT INVESTISSEMENT',
+        'ONT FICHE STATISTIQUES',
+        'APPUI ADM DU TOURISME',
+        'ICCN',
+        'SITE TOURISTIQUE',
+        'COMITE DE SUIVI ET VALIDATION',
+        'ONT CONTROLE ET INSPECTION DES UNITES TOURISTIQUES',
+      ];
+      
+      return transactions.filter(transaction => 
+        targetDesignations.some(target => 
+          transaction.designation.toUpperCase().includes(target.toUpperCase())
+        )
+      );
+      
+    } catch (error) {
+      console.warn('Table parser failed, falling back to regex:', error);
+      return this.extractTransactionsWithRegex(page);
+    }
+  }
+
+  /**
+   * Extract transactions using the original regex method (fallback)
+   */
+  private async extractTransactionsWithRegex(page: any): Promise<TransactionData[]> {
+    console.log('Using regex parser for page extraction...');
+    
+    const content = await page.getTextContent();
+    const text = content.items.map((item: any) => item.str).join(' ');
+    
+    // Pattern optimisé pour vos besoins
+    const targetDesignations = [
+      'PYT FPT',
+      'TRSF',
+      'PMT TOURISME',
+      'FPT INVESTISSEMENT',
+      'ONT FICHE STATISTIQUES',
+      'APPUI ADM DU TOURISME',
+      'ICCN',
+      'SITE TOURISTIQUE',
+      'COMITE DE SUIVI ET VALIDATION',
+      'ONT CONTROLE ET INSPECTION DES UNITES TOURISTIQUES',
+    ];
+    const designationPattern = targetDesignations.join('|');
+
+    // Enhanced regex to capture amounts with commas and decimals
+    // Look for patterns like: date designation amount1 amount2 (where amount2 might be balance)
+    const transactionRegex = new RegExp(
+      `(\\d{2}-\\d{2}-\\d{4}).*?(${designationPattern}).*?` +
+        `([\\d,]+\\.\\d{2})(?:\\s+([\\d,]+\\.\\d{2}))?`, // Two amounts: debit/credit and possibly balance
+      'gi'
+    );
+
+    const result: TransactionData[] = [];
+    let match;
+    while ((match = transactionRegex.exec(text)) !== null) {
+      const amount1 = this.parseAmount(match[3]);
+      const amount2 = match[4] ? this.parseAmount(match[4]) : 0;
+      
+      // Logic to determine if it's a debit or credit
+      // In bank statements, typically:
+      // - If there's only one amount, check context or assume it's a debit (expense)
+      // - If there are two amounts, the first is usually the transaction amount, second is balance
+      
+      let debit = 0;
+      let credit = 0;
+      let montant = 0;
+      
+      // For now, let's assume single amounts are debits (expenses) since this is an expense tracking system
+      // You may need to adjust this logic based on your specific PDF format
+      if (amount2 === 0) {
+        // Single amount - assume it's a debit (expense)
+        debit = amount1;
+        credit = 0;
+        montant = -amount1; // Negative for debit
+      } else {
+        // Two amounts - need to determine which is debit/credit based on context
+        // This might need adjustment based on your PDF format
+        debit = amount1;
+        credit = 0;
+        montant = -amount1; // Negative for debit
+      }
+
+      result.push({
+        date: match[1],
+        designation: match[2],
+        debit: debit,
+        credit: credit,
+        montant: montant,
+      });
+    }
+
+    return result;
   }
 
   /**
@@ -162,6 +227,14 @@ export class HomePage {
       // No decimal point, just remove commas
       return parseFloat(cleanAmount.replace(/,/g, ''));
     }
+  }
+
+  /**
+   * Toggle between table parser and regex parser
+   */
+  toggleParsingMethod() {
+    this.useTableParser = !this.useTableParser;
+    console.log(`Switched to ${this.useTableParser ? 'table parser' : 'regex parser'}`);
   }
 
   /**

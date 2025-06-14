@@ -109,6 +109,46 @@
   }
 }
 
+// Parser Toggle Styling
+.parser-toggle {
+  margin: 16px 0;
+  
+  .toggle-item {
+    --background: var(--defmaks-surface-variant);
+    --border-color: var(--defmaks-outline);
+    border: 1px solid var(--defmaks-outline);
+    border-radius: 12px;
+    --padding-start: 16px;
+    --padding-end: 16px;
+    
+    ion-label {
+      h3 {
+        font-size: 1rem;
+        font-weight: 600;
+        margin: 0 0 4px 0;
+        color: var(--ion-text-color);
+      }
+      
+      p {
+        font-size: 0.875rem;
+        color: var(--ion-color-medium);
+        margin: 0;
+        line-height: 1.4;
+      }
+    }
+  }
+}
+
+// Parser Indicator
+.parser-indicator {
+  margin-left: 12px;
+  font-size: 0.75rem;
+  
+  ion-icon {
+    margin-right: 4px;
+  }
+}
+
 // Exchange Rate Display
 .defmaks-stats-card {
   .exchange-rate-display {
