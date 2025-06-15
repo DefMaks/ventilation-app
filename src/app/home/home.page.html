@@ -2,7 +2,7 @@
   <ion-toolbar color="transparent">
     <ion-title class="defmaks-title">
       <ion-icon name="document-text-outline" class="title-icon"></ion-icon>
-      DefMaks Ventilation
+      Office National du Tourisme - Ventilation
     </ion-title>
     <p class="defmaks-subtitle">Traitement facture</p>
   </ion-toolbar>
@@ -30,12 +30,16 @@
           class="file-input"
         />
         <div class="upload-placeholder" (click)="fileInput.click()">
-          <ion-icon name="document-outline" size="large" color="medium"></ion-icon>
+          <ion-icon
+            name="document-outline"
+            size="large"
+            color="medium"
+          ></ion-icon>
           <p class="defmaks-body">Cliquez pour sélectionner un fichier PDF</p>
           <p class="defmaks-caption">Formats acceptés: PDF uniquement</p>
         </div>
       </div>
-      
+
       <!-- Parser Method Toggle -->
       <div class="parser-toggle">
         <ion-item class="toggle-item">
@@ -43,21 +47,23 @@
             <h3>Méthode d'analyse avancée</h3>
             <p>Utilise l'analyse de structure de tableau (recommandé)</p>
           </ion-label>
-          <ion-toggle 
-            [(ngModel)]="useTableParser" 
+          <ion-toggle
+            [(ngModel)]="useTableParser"
             (ionChange)="toggleParsingMethod()"
             color="success"
-            slot="end">
+            slot="end"
+          >
           </ion-toggle>
         </ion-item>
       </div>
-      
-      <ion-button 
-        fill="clear" 
-        size="small" 
+
+      <ion-button
+        fill="clear"
+        size="small"
         (click)="clearData()"
         *ngIf="transactions.length > 0"
-        class="defmaks-button clear-button">
+        class="defmaks-button clear-button"
+      >
         <ion-icon name="refresh-outline" slot="start"></ion-icon>
         Effacer les données
       </ion-button>
@@ -71,15 +77,21 @@
         <ion-icon name="swap-horizontal-outline" size="large"></ion-icon>
         <div class="rate-details">
           <h3>Taux de change pour export</h3>
-          <p class="rate-value">1 USD = {{ formatNumber(currentExchangeRate, 0) }} CDF</p>
-          <small class="rate-note">Les données sont affichées en USD, converties en CDF lors de l'export</small>
+          <p class="rate-value">
+            1 USD = {{ formatNumber(currentExchangeRate, 0) }} CDF
+          </p>
+          <small class="rate-note"
+            >Les données sont affichées en USD, converties en CDF lors de
+            l'export</small
+          >
         </div>
       </div>
-      <ion-button 
-        fill="clear" 
-        size="small" 
+      <ion-button
+        fill="clear"
+        size="small"
         (click)="changeExchangeRate()"
-        class="defmaks-button rate-button">
+        class="defmaks-button rate-button"
+      >
         <ion-icon name="create-outline" slot="start"></ion-icon>
         Modifier
       </ion-button>
@@ -94,11 +106,15 @@
         <div class="processing-text">
           <h3 class="defmaks-title">Traitement en cours...</h3>
           <p class="defmaks-body">
-            {{ useTableParser ? 'Analyse de la structure du tableau' : 'Extraction des données du PDF' }}
+            {{ useTableParser ? 'Analyse de la structure du tableau' :
+            'Extraction des données du PDF' }}
           </p>
         </div>
       </div>
-      <ion-progress-bar type="indeterminate" class="defmaks-progress"></ion-progress-bar>
+      <ion-progress-bar
+        type="indeterminate"
+        class="defmaks-progress"
+      ></ion-progress-bar>
     </ion-card-content>
   </div>
 
@@ -113,7 +129,11 @@
     <ion-card-content>
       <div class="error-list">
         <div *ngFor="let error of validationErrors" class="error-item">
-          <ion-icon name="alert-circle-outline" color="warning" size="small"></ion-icon>
+          <ion-icon
+            name="alert-circle-outline"
+            color="warning"
+            size="small"
+          ></ion-icon>
           <span class="defmaks-body">{{ error }}</span>
         </div>
       </div>
@@ -123,17 +143,20 @@
   <!-- Export Actions -->
   <div *ngIf="transactions.length > 0" class="export-section">
     <div class="defmaks-section-header">Actions d'export</div>
-    
+
     <div class="export-buttons">
       <ion-button
         expand="block"
         color="success"
         (click)="exportToExcel()"
-        class="defmaks-button export-button">
+        class="defmaks-button export-button"
+      >
         <ion-icon name="document-outline" slot="start"></ion-icon>
         <div class="button-content">
           <span class="button-title">Créer Template Excel ONT</span>
-          <span class="button-subtitle">Format officiel recommandé (USD → CDF)</span>
+          <span class="button-subtitle"
+            >Format officiel recommandé (USD → CDF)</span
+          >
         </div>
       </ion-button>
 
@@ -141,11 +164,14 @@
         expand="block"
         color="secondary"
         (click)="exportToExcelLegacy()"
-        class="defmaks-button export-button">
+        class="defmaks-button export-button"
+      >
         <ion-icon name="download-outline" slot="start"></ion-icon>
         <div class="button-content">
           <span class="button-title">Export Simple</span>
-          <span class="button-subtitle">Format de compatibilité (USD → CDF)</span>
+          <span class="button-subtitle"
+            >Format de compatibilité (USD → CDF)</span
+          >
         </div>
       </ion-button>
     </div>
@@ -159,7 +185,8 @@
         Mettre à jour un template existant
       </ion-card-title>
       <ion-card-subtitle class="defmaks-subtitle">
-        Importez un fichier Excel existant pour le mettre à jour (conversion USD → CDF appliquée)
+        Importez un fichier Excel existant pour le mettre à jour (conversion USD
+        → CDF appliquée)
       </ion-card-subtitle>
     </ion-card-header>
     <ion-card-content>
@@ -171,8 +198,15 @@
           #templateInput
           class="file-input"
         />
-        <div class="upload-placeholder template-placeholder" (click)="templateInput.click()">
-          <ion-icon name="document-text-outline" size="large" color="tertiary"></ion-icon>
+        <div
+          class="upload-placeholder template-placeholder"
+          (click)="templateInput.click()"
+        >
+          <ion-icon
+            name="document-text-outline"
+            size="large"
+            color="tertiary"
+          ></ion-icon>
           <p class="defmaks-body">Sélectionner un fichier Excel</p>
           <p class="defmaks-caption">Formats: .xlsx, .xls</p>
         </div>
@@ -186,9 +220,17 @@
       <ion-card-title class="defmaks-title">
         <ion-icon name="analytics-outline" color="primary"></ion-icon>
         Résumé des données ({{ transactions.length }} transactions en USD)
-        <ion-chip color="{{ useTableParser ? 'success' : 'warning' }}" class="parser-indicator">
-          <ion-icon name="{{ useTableParser ? 'grid-outline' : 'text-outline' }}"></ion-icon>
-          <ion-label>{{ useTableParser ? 'Analyse tableau' : 'Analyse regex' }}</ion-label>
+        <ion-chip
+          color="{{ useTableParser ? 'success' : 'warning' }}"
+          class="parser-indicator"
+        >
+          <ion-icon
+            name="{{ useTableParser ? 'grid-outline' : 'text-outline' }}"
+          ></ion-icon>
+          <ion-label
+            >{{ useTableParser ? 'Analyse tableau' : 'Analyse regex'
+            }}</ion-label
+          >
         </ion-chip>
       </ion-card-title>
     </ion-card-header>
@@ -196,16 +238,25 @@
       <!-- Summary by designation -->
       <div class="defmaks-section-header">Résumé par désignation</div>
       <div class="summary-grid">
-        <div *ngFor="let summary of getSummaryByDesignation()" 
-             class="summary-item defmaks-interactive"
-             (click)="openTransactionQuickview(summary.designation)">
+        <div
+          *ngFor="let summary of getSummaryByDesignation()"
+          class="summary-item defmaks-interactive"
+          (click)="openTransactionQuickview(summary.designation)"
+        >
           <div class="summary-content">
             <h3 class="summary-title">{{ summary.designation }}</h3>
             <div class="summary-stats">
-              <span class="transaction-count">{{ summary.count }} transaction(s)</span>
+              <span class="transaction-count"
+                >{{ summary.count }} transaction(s)</span
+              >
               <div class="amount-display">
-                <strong class="usd-amount defmaks-amount-positive">{{ formatCurrency(summary.total, 'USD') }}</strong>
-                <small class="conversion-note">≈ {{ formatCurrency(summary.total * currentExchangeRate, 'CDF') }}</small>
+                <strong class="usd-amount defmaks-amount-positive"
+                  >{{ formatCurrency(summary.total, 'USD') }}</strong
+                >
+                <small class="conversion-note"
+                  >≈ {{ formatCurrency(summary.total * currentExchangeRate,
+                  'CDF') }}</small
+                >
               </div>
             </div>
           </div>
@@ -220,69 +271,114 @@
       <ion-accordion-group class="defmaks-accordion">
         <ion-accordion value="details">
           <ion-item slot="header" class="accordion-header">
-            <ion-icon name="list-outline" slot="start" color="primary"></ion-icon>
-            <ion-label class="defmaks-title">Voir toutes les transactions</ion-label>
-            <ion-icon name="chevron-down-outline" slot="end" color="medium"></ion-icon>
+            <ion-icon
+              name="list-outline"
+              slot="start"
+              color="primary"
+            ></ion-icon>
+            <ion-label class="defmaks-title"
+              >Voir toutes les transactions</ion-label
+            >
+            <ion-icon
+              name="chevron-down-outline"
+              slot="end"
+              color="medium"
+            ></ion-icon>
           </ion-item>
           <div slot="content" class="accordion-content">
             <div class="transaction-list">
-              <div *ngFor="let t of transactions; let i = index" 
-                   class="defmaks-transaction-item"
-                   [class.suspicious-transaction]="isSuspiciousAmount(t.montant)">
+              <div
+                *ngFor="let t of transactions; let i = index"
+                class="defmaks-transaction-item"
+                [class.suspicious-transaction]="isSuspiciousAmount(t.montant)"
+              >
                 <div class="transaction-header">
                   <div class="transaction-info">
                     <h3 class="transaction-date">{{ t.date }}</h3>
-                    <p class="transaction-designation" 
-                       [class.full-designation]="isSuspiciousAmount(t.montant)">
+                    <p
+                      class="transaction-designation"
+                      [class.full-designation]="isSuspiciousAmount(t.montant)"
+                    >
                       {{ t.designation }}
-                      <small *ngIf="isSuspiciousAmount(t.montant)" class="suspicious-note">
-                        <ion-icon name="warning-outline" size="small"></ion-icon>
+                      <small
+                        *ngIf="isSuspiciousAmount(t.montant)"
+                        class="suspicious-note"
+                      >
+                        <ion-icon
+                          name="warning-outline"
+                          size="small"
+                        ></ion-icon>
                         Montant suspect - Libellé complet affiché
                       </small>
                     </p>
                   </div>
                   <div class="transaction-badge">
                     <span class="defmaks-status-success">{{ i + 1 }}</span>
-                    <ion-icon *ngIf="isSuspiciousAmount(t.montant)" 
-                             name="warning" 
-                             color="warning" 
-                             class="suspicious-icon"></ion-icon>
+                    <ion-icon
+                      *ngIf="isSuspiciousAmount(t.montant)"
+                      name="warning"
+                      color="warning"
+                      class="suspicious-icon"
+                    ></ion-icon>
                   </div>
                 </div>
-                
+
                 <div class="transaction-amounts">
                   <div *ngIf="t.debit > 0" class="amount-row debit-row">
                     <span class="amount-label">Débit:</span>
-                    <span class="amount-value debit-amount">{{ formatCurrency(t.debit, 'USD') }}</span>
+                    <span class="amount-value debit-amount"
+                      >{{ formatCurrency(t.debit, 'USD') }}</span
+                    >
                   </div>
                   <div *ngIf="t.credit > 0" class="amount-row credit-row">
                     <span class="amount-label">Crédit:</span>
-                    <span class="amount-value credit-amount">{{ formatCurrency(t.credit, 'USD') }}</span>
+                    <span class="amount-value credit-amount"
+                      >{{ formatCurrency(t.credit, 'USD') }}</span
+                    >
                   </div>
                   <div class="amount-row net-row">
                     <span class="amount-label">Net:</span>
-                    <strong [class]="t.montant >= 0 ? 'credit-amount' : 'debit-amount'">
+                    <strong
+                      [class]="t.montant >= 0 ? 'credit-amount' : 'debit-amount'"
+                    >
                       {{ formatCurrency(t.montant, 'USD') }}
                     </strong>
                   </div>
-                  
+
                   <!-- Show CDF conversion preview for suspicious amounts -->
-                  <div *ngIf="isSuspiciousAmount(t.montant)" class="conversion-preview">
+                  <div
+                    *ngIf="isSuspiciousAmount(t.montant)"
+                    class="conversion-preview"
+                  >
                     <div class="conversion-header">
-                      <ion-icon name="swap-horizontal-outline" size="small"></ion-icon>
-                      <span class="conversion-title">Aperçu conversion CDF</span>
+                      <ion-icon
+                        name="swap-horizontal-outline"
+                        size="small"
+                      ></ion-icon>
+                      <span class="conversion-title"
+                        >Aperçu conversion CDF</span
+                      >
                     </div>
                     <div *ngIf="t.debit > 0" class="amount-row conversion-row">
                       <span class="amount-label">Débit CDF:</span>
-                      <span class="cdf-amount">{{ formatCurrency(t.debit * currentExchangeRate, 'CDF') }}</span>
+                      <span class="cdf-amount"
+                        >{{ formatCurrency(t.debit * currentExchangeRate, 'CDF')
+                        }}</span
+                      >
                     </div>
                     <div *ngIf="t.credit > 0" class="amount-row conversion-row">
                       <span class="amount-label">Crédit CDF:</span>
-                      <span class="cdf-amount">{{ formatCurrency(t.credit * currentExchangeRate, 'CDF') }}</span>
+                      <span class="cdf-amount"
+                        >{{ formatCurrency(t.credit * currentExchangeRate,
+                        'CDF') }}</span
+                      >
                     </div>
                     <div class="amount-row conversion-row">
                       <span class="amount-label">Net CDF:</span>
-                      <strong class="cdf-amount">{{ formatCurrency(t.montant * currentExchangeRate, 'CDF') }}</strong>
+                      <strong class="cdf-amount"
+                        >{{ formatCurrency(t.montant * currentExchangeRate,
+                        'CDF') }}</strong
+                      >
                     </div>
                   </div>
                 </div>

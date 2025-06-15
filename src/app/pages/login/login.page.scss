@@ -9,16 +9,27 @@
 }
 
 .login-content::before {
-  content: '';
+  content: "";
   position: absolute;
   top: 0;
   left: 0;
   right: 0;
   bottom: 0;
-  background: 
-    radial-gradient(circle at 20% 80%, rgba(99, 102, 241, 0.3) 0%, transparent 50%),
-    radial-gradient(circle at 80% 20%, rgba(74, 144, 226, 0.3) 0%, transparent 50%),
-    radial-gradient(circle at 40% 40%, rgba(16, 185, 129, 0.2) 0%, transparent 50%);
+  background: radial-gradient(
+      circle at 20% 80%,
+      rgba(99, 102, 241, 0.3) 0%,
+      transparent 50%
+    ),
+    radial-gradient(
+      circle at 80% 20%,
+      rgba(74, 144, 226, 0.3) 0%,
+      transparent 50%
+    ),
+    radial-gradient(
+      circle at 40% 40%,
+      rgba(16, 185, 129, 0.2) 0%,
+      transparent 50%
+    );
   z-index: 0;
 }
 
@@ -29,38 +40,41 @@
   align-items: center;
   justify-content: center;
   padding: 32px;
-    top: 21vh!important;
-  width: 100%
+  // top: 21vh !important;
+  width: 100%;
   height: 100vh;
 }
 
 // Square Login Box with Glass Effect
 .login-box {
-  //width: 400px;
+  width: 400px;
   height: 400px;
-  width: 40%!important;
+  // width: 40% !important;
   margin: auto;
   background: rgba(255, 255, 255, 0.1);
   backdrop-filter: blur(20px);
   border: 1px solid rgba(255, 255, 255, 0.2);
   border-radius: 24px;
   padding: 40px;
-  box-shadow: 
-    0 25px 50px rgba(0, 0, 0, 0.2),
+  box-shadow: 0 25px 50px rgba(0, 0, 0, 0.2),
     inset 0 1px 0 rgba(255, 255, 255, 0.2);
   animation: fadeInScale 0.8s ease-out;
   display: flex;
   flex-direction: column;
   justify-content: center;
-  
+
   .login-header {
     text-align: center;
     margin-bottom: 32px;
-    
+
     .app-logo {
       width: 60px;
       height: 60px;
-      background: linear-gradient(135deg, rgba(255, 255, 255, 0.2) 0%, rgba(255, 255, 255, 0.1) 100%);
+      background: linear-gradient(
+        135deg,
+        rgba(255, 255, 255, 0.2) 0%,
+        rgba(255, 255, 255, 0.1) 100%
+      );
       backdrop-filter: blur(20px);
       border: 2px solid rgba(255, 255, 255, 0.3);
       border-radius: 50%;
@@ -68,16 +82,15 @@
       align-items: center;
       justify-content: center;
       margin: 0 auto 16px;
-      box-shadow: 
-        0 8px 32px rgba(0, 0, 0, 0.1),
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1),
         inset 0 1px 0 rgba(255, 255, 255, 0.2);
-      
+
       ion-icon {
         font-size: 1.8rem;
         color: white;
       }
     }
-    
+
     .login-title {
       font-size: 1.5rem;
       font-weight: 700;
@@ -85,7 +98,7 @@
       margin: 0 0 8px 0;
       text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
     }
-    
+
     .login-subtitle {
       font-size: 0.9rem;
       color: rgba(255, 255, 255, 0.7);
@@ -101,10 +114,10 @@
   display: flex;
   flex-direction: column;
   justify-content: center;
-  
+
   .input-group {
     margin-bottom: 20px;
-    
+
     .login-input {
       --background: rgba(255, 255, 255, 0.1);
       --border-color: rgba(255, 255, 255, 0.2);
@@ -114,16 +127,15 @@
       border-radius: 12px;
       backdrop-filter: blur(10px);
       transition: all 0.3s ease;
-      
+
       &.item-has-focus {
         --border-color: rgba(99, 102, 241, 0.8);
         border-color: rgba(99, 102, 241, 0.8);
-        box-shadow: 
-          0 0 0 3px rgba(99, 102, 241, 0.2),
+        box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2),
           0 4px 12px rgba(99, 102, 241, 0.3);
         --background: rgba(255, 255, 255, 0.15);
       }
-      
+
       ion-label {
         color: rgba(255, 255, 255, 0.9);
         font-weight: 600;
@@ -132,13 +144,13 @@
         align-items: center;
         gap: 8px;
         margin-bottom: 8px;
-        
+
         .input-icon {
           font-size: 1rem;
           opacity: 0.8;
         }
       }
-      
+
       .input-field {
         --color: white;
         --placeholder-color: rgba(255, 255, 255, 0.6);
@@ -147,7 +159,7 @@
       }
     }
   }
-  
+
   .login-button {
     --background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
     --color: white;
@@ -160,17 +172,17 @@
     letter-spacing: 0.02em;
     margin-top: 8px;
     transition: all 0.3s ease;
-    
+
     &:hover {
       --box-shadow: 0 12px 35px rgba(99, 102, 241, 0.5);
       transform: translateY(-2px);
     }
-    
+
     &:active {
       transform: translateY(0);
     }
   }
-  
+
   .error-message {
     display: flex;
     align-items: center;
@@ -181,18 +193,25 @@
     padding: 10px 12px;
     margin-top: 12px;
     backdrop-filter: blur(10px);
-    
+
     .error-icon {
       color: #fca5a5;
       font-size: 1rem;
       flex-shrink: 0;
     }
-    
+
     span {
       color: #fca5a5;
       font-size: 0.85rem;
       font-weight: 500;
     }
+  }
+
+  .watermark {
+    text-align: center;
+    padding-top: 5px;
+    color: white;
+    opacity: 0.6;
   }
 }
 
@@ -213,7 +232,7 @@
   .login-container {
     padding: 20px;
   }
-  
+
   .login-box {
     width: 100%;
     max-width: 350px;
@@ -229,21 +248,21 @@
     height: 450px;
     padding: 48px;
   }
-  
+
   .login-header {
     .app-logo {
       width: 70px;
       height: 70px;
-      
+
       ion-icon {
         font-size: 2rem;
       }
     }
-    
+
     .login-title {
       font-size: 1.75rem;
     }
-    
+
     .login-subtitle {
       font-size: 1rem;
     }
@@ -273,7 +292,7 @@
     background: rgba(255, 255, 255, 0.2);
     border: 2px solid rgba(255, 255, 255, 0.5);
   }
-  
+
   .login-input {
     --border-color: rgba(255, 255, 255, 0.5);
     border-width: 2px;
@@ -285,7 +304,7 @@
   .login-box {
     animation: none;
   }
-  
+
   .login-button,
   .login-input {
     transition: none;

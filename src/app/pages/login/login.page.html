@@ -4,9 +4,10 @@
     <div class="login-box">
       <div class="login-header">
         <div class="app-logo">
-          <ion-icon name="document-text-outline"></ion-icon>
+          <!-- <ion-icon name="document-text-outline"></ion-icon> -->
+          <img src="assets/O.N.T.png" alt="" />
         </div>
-        <h2 class="login-title">DefMaks</h2>
+        <h2 class="login-title">Office National du Tourisme</h2>
         <p class="login-subtitle">Traitement facture</p>
       </div>
 
@@ -22,7 +23,8 @@
               name="username"
               type="text"
               placeholder="Entrez votre nom d'utilisateur"
-              class="input-field">
+              class="input-field"
+            >
             </ion-input>
           </ion-item>
         </div>
@@ -30,7 +32,10 @@
         <div class="input-group">
           <ion-item class="defmaks-input login-input">
             <ion-label position="stacked">
-              <ion-icon name="lock-closed-outline" class="input-icon"></ion-icon>
+              <ion-icon
+                name="lock-closed-outline"
+                class="input-icon"
+              ></ion-icon>
               Mot de passe
             </ion-label>
             <ion-input
@@ -38,7 +43,8 @@
               name="password"
               type="password"
               placeholder="Entrez votre mot de passe"
-              class="input-field">
+              class="input-field"
+            >
             </ion-input>
           </ion-item>
         </div>
@@ -46,7 +52,8 @@
         <ion-button
           expand="block"
           (click)="login()"
-          class="defmaks-button login-button">
+          class="defmaks-button login-button"
+        >
           <ion-icon name="log-in-outline" slot="start"></ion-icon>
           Se connecter
         </ion-button>
@@ -55,6 +62,7 @@
           <ion-icon name="alert-circle-outline" class="error-icon"></ion-icon>
           <span>{{ error }}</span>
         </div>
+        <div class="watermark"><small>© DefMaks</small></div>
       </form>
     </div>
   </div>
